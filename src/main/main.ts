@@ -13,8 +13,9 @@
 // Suppress security warnings in development (we intentionally disable webSecurity for CORS bypass)
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 
-import { app, BrowserWindow, session } from 'electron';
+import { app, BrowserWindow, session, ipcMain } from 'electron';
 import path from 'path';
+import { runTraceroute, extractHostnameFromUrl } from './TracerouteProvider.js';
 
 // __dirname is available in CommonJS (our tsconfig uses module: CommonJS)
 
@@ -170,9 +171,41 @@ function isVideoRequest(url: string): boolean {
         url.includes('chunk');
 }
 
+/**
+ * Sets up IPC handlers for renderer requests
+ */
+function setupIpcHandlers(): void {
+    // Handle traceroute requests
+    ipcMain.on('run-traceroute', async (event, host: string) => {
+        console.log(`[Electron] Traceroute requested for: ${host}`);
+
+        // Extract hostname if URL was passed
+        const target = host.includes('://') ? extractHostnameFromUrl(host) : host;
+
+        if (!target) {
+            console.error('[Electron] Invalid traceroute target:', host);
+            return;
+        }
+
+        try {
+            const result = await runTraceroute(target, 20, 2);
+
+            // Send result to renderer
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('traceroute-result', result);
+            }
+        } catch (error: any) {
+            console.error('[Electron] Traceroute failed:', error.message);
+        }
+    });
+
+    console.log('[Electron] IPC handlers registered');
+}
+
 // App lifecycle events
 app.whenReady().then(() => {
     setupNetworkMonitoring();
+    setupIpcHandlers();
     createWindow();
 
     // macOS: re-create window when dock icon is clicked
