@@ -1,0 +1,38 @@
+appId: com.oi.cdn-demo
+productName: oli CDN Demo
+copyright: Copyright © 2024 o|i
+
+directories:
+  output: release
+  buildResources: build
+
+# Icon will be automatically picked up from build/icon.png
+icon: build/icon.png
+
+files:
+  - dist/**/*
+  - app/app/dist/**/*
+  - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
+  - "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
+  - "!**/node_modules/.bin"
+
+mac:
+  category: public.app-category.utilities
+  icon: build/icon.png
+  target:
+    - dmg
+    - zip
+
+win:
+  target:
+    - nsis
+    - portable
+
+linux:
+  target:
+    - AppImage
+    - deb
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

@@ -1,0 +1,33 @@
+{
+  "name": "oli-electron",
+  "version": "1.0.0",
+  "description": "Electron desktop app for o|i CDN Demo - bypasses CORS and enables native network monitoring",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"npm run dev:vite\" \"npm run dev:electron\"",
+    "dev:vite": "cd app/app && npm run dev",
+    "dev:electron": "wait-on http://localhost:5173 && npm run compile && electron .",
+    "compile": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json && mv dist/main/preload.js dist/main/preload.cjs",
+    "build": "npm run build:vite && npm run build:electron",
+    "build:vite": "cd app/app && npm run build",
+    "build:electron": "npm run compile && electron-builder",
+    "postinstall": "cd app/app && npm install"
+  },
+  "keywords": [
+    "electron",
+    "cdn",
+    "video",
+    "streaming",
+    "network-monitoring"
+  ],
+  "author": "Mark Minnoye",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "concurrently": "^9.0.0",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "typescript": "^5.6.0",
+    "wait-on": "^9.0.3"
+  }
+}
