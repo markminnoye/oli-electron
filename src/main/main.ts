@@ -88,26 +88,86 @@ function createWindow(): void {
 /**
  * Sets up HTTP header interception for network monitoring
  * This captures ALL headers (no CORS restrictions!)
+ * Headers are sent to the renderer process via IPC for DeepPacketAnalyser
  */
 function setupNetworkMonitoring(): void {
+    // Track request start times for TTFB calculation
+    const requestStartTimes = new Map<string, number>();
+
+    // Capture request start time
+    session.defaultSession.webRequest.onBeforeRequest(
+        { urls: ['*://*/*'] },
+        (details, callback) => {
+            // Only track video-related requests
+            if (isVideoRequest(details.url)) {
+                requestStartTimes.set(details.resourceType + details.url, Date.now());
+            }
+            callback({});
+        }
+    );
+
+    // Capture response headers and send to renderer
     session.defaultSession.webRequest.onHeadersReceived(
         { urls: ['*://*/*'] },
         (details, callback) => {
-            // In Phase 2, we'll send these headers to the renderer via IPC
-            // For now, just log video-related requests
-            if (details.url.includes('.m3u8') ||
-                details.url.includes('.mpd') ||
-                details.url.includes('.ts') ||
-                details.url.includes('.m4s')) {
-                console.log('[Network]', details.method, details.url);
-                console.log('[Headers]', JSON.stringify(details.responseHeaders, null, 2));
+            // Only process video-related requests
+            if (isVideoRequest(details.url)) {
+                const requestKey = details.resourceType + details.url;
+                const startTime = requestStartTimes.get(requestKey);
+                const ttfb = startTime ? Date.now() - startTime : 0;
+
+                // Clean up the start time
+                requestStartTimes.delete(requestKey);
+
+                // Flatten headers from Record<string, string[]> to Record<string, string>
+                const flatHeaders: Record<string, string> = {};
+                if (details.responseHeaders) {
+                    for (const [key, values] of Object.entries(details.responseHeaders)) {
+                        flatHeaders[key.toLowerCase()] = Array.isArray(values) ? values[0] : values;
+                    }
+                }
+
+                // Send to renderer via IPC
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('http-headers', {
+                        url: details.url,
+                        headers: flatHeaders,
+                        statusCode: details.statusCode,
+                        ttfb: ttfb,
+                        timestamp: Date.now(),
+                        method: details.method,
+                        resourceType: details.resourceType
+                    });
+                }
+
+                // Debug log for development
+                if (isDev) {
+                    const cdn = flatHeaders['x-cdn'] || flatHeaders['server'] || 'unknown';
+                    console.log(`[Network] ${details.method} ${details.url.substring(0, 80)}... (CDN: ${cdn}, TTFB: ${ttfb}ms)`);
+                }
             }
 
             callback({ responseHeaders: details.responseHeaders });
         }
     );
 
-    console.log('[Electron] Network monitoring enabled');
+    console.log('[Electron] Network monitoring enabled - headers will be sent to renderer');
+}
+
+/**
+ * Check if a URL is a video-related request (manifest or segment)
+ */
+function isVideoRequest(url: string): boolean {
+    return url.includes('.m3u8') ||
+        url.includes('.mpd') ||
+        url.includes('.ts') ||
+        url.includes('.m4s') ||
+        url.includes('.m4v') ||
+        url.includes('.mp4') ||
+        url.includes('.cmfv') ||
+        url.includes('.cmfa') ||
+        url.includes('segment') ||
+        url.includes('chunk');
 }
 
 // App lifecycle events
