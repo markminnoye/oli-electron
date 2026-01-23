@@ -39,6 +39,23 @@ const electronAPI = {
     },
 
     /**
+     * Subscribe to server IP resolution events
+     * @param callback - Function called with server IP data
+     * @returns Cleanup function to unsubscribe
+     */
+    onServerIpResolved: (callback: (data: {
+        url: string;
+        hostname: string | null;
+        ip: string;
+        fromCache: boolean;
+        timestamp: number;
+    }) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+        ipcRenderer.on('server-ip-resolved', handler);
+        return () => ipcRenderer.removeListener('server-ip-resolved', handler);
+    },
+
+    /**
      * Subscribe to traceroute results
      * @param callback - Function called with traceroute hops
      * @returns Cleanup function to unsubscribe
@@ -76,6 +93,21 @@ const electronAPI = {
      */
     getGeolocation: (): Promise<{ lat: number; lon: number; accuracy: number } | null> => {
         return ipcRenderer.invoke('get-geolocation');
+    },
+
+    /**
+     * Set custom headers to inject into video requests
+     * @param headers - Object with header name -> value pairs
+     */
+    setCustomHeaders: (headers: Record<string, string>) => {
+        ipcRenderer.send('set-custom-headers', headers);
+    },
+
+    /**
+     * Clear all custom headers
+     */
+    clearCustomHeaders: () => {
+        ipcRenderer.send('clear-custom-headers');
     }
 };
 
