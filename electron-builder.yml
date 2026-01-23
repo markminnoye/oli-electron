@@ -1,13 +1,13 @@
-appId: com.oi.cdn-demo
+appId: be.sonicrocket.oli-cdn-demo
 productName: oli CDN Demo
-copyright: Copyright © 2026 o|i
+copyright: Copyright © 2026 Sonicrocket
 
 directories:
   output: release
   buildResources: build
 
-# Icon will be automatically picked up from build/icon.png
-icon: build/icon.png
+# Icon will be automatically picked up from build/oli-electron.png
+icon: build/oli-electron.png
 
 files:
   - dist/**/*
@@ -18,7 +18,7 @@ files:
 
 mac:
   category: public.app-category.utilities
-  icon: build/icon.png
+  icon: build/oli-electron.icns
   target:
     - dmg
     - zip
