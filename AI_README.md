@@ -118,6 +118,43 @@ npm run build:electron  # Package to DMG
 - **develop** - Active development
 - **feature/*** - Feature branches from develop
 
+### Submodule Branching Strategy
+
+**Critical**: The `app/` submodule has its own git repository with matching branch names.
+
+**Rule:** Each branch in main repo should point to the **same-named branch** in the submodule:
+```
+oli-electron/                app/ submodule
+─────────────────────────────────────────
+main branch          →       main branch
+develop branch       →       develop branch
+feature/xyz branch   →       feature/xyz branch
+```
+
+**Workflow for new features:**
+```bash
+# 1. Start in app submodule
+cd app
+git checkout develop
+git pull origin develop
+
+# Make changes in app/, commit
+git add .
+git commit -m "feat: ..."
+git push origin develop
+
+# 2. Update main repo to point to new submodule commit
+cd ..
+git add app
+git commit -m "chore: update app submodule"
+git push origin develop
+```
+
+**Benefits:**
+- **Consistency**: develop→develop makes it clear what version you're on
+- **Isolation**: Production (main) stays stable while development happens
+- **Easy rollback**: Switch main repo branches to get matching submodule versions
+
 The webapp is a **git submodule** at `app/`. Always use:
 ```bash
 git submodule update --remote --merge  # Sync webapp
