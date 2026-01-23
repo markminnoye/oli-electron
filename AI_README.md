@@ -33,6 +33,26 @@ oli-electron/                 # Electron shell
 
 ## Critical Implementation Details
 
+### ⚠️ Webapp Bundle Optimization
+
+**CRITICAL:** The `app/` submodule is shared between Electron and webapp deployments.
+
+**Rule:** Electron-specific code must use **dynamic imports** to prevent bloating webapp bundle.
+
+```typescript
+// ❌ BAD: Adds ~736 lines to webapp bundle
+import { ElectronBridge } from './ElectronBridge';
+import { ElectronTopologyService } from './ElectronTopologyService';
+
+// ✅ GOOD: Tree-shaken from webapp
+if (isElectron()) {
+    const { ElectronBridge } = await import('./ElectronBridge');
+    const bridge = ElectronBridge.getInstance();
+}
+```
+
+**See:** [`app/docs/ELECTRON_BUNDLE_OPTIMIZATION.md`](app/docs/ELECTRON_BUNDLE_OPTIMIZATION.md) for full guide.
+
 ### Header Capture Flow (Phase 2)
 
 ```
