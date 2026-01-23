@@ -28,15 +28,24 @@ export interface TracerouteResult {
 
 /**
  * Parse traceroute output (macOS/Linux format)
- * Example line: " 1  192.168.1.1 (192.168.1.1)  3.123 ms  2.456 ms  1.789 ms"
+ * IPv4 example: " 1  192.168.1.1 (192.168.1.1)  3.123 ms  2.456 ms  1.789 ms"
+ * IPv6 example: " 1  hostname.example.com  7.736 ms  5.309 ms  6.890 ms"
+ * IPv6 bare:    " 9  2001:730:2300::5474:80a1  36.030 ms  140.830 ms  34.598 ms"
+ * IPv6 dashed:  " 2  2a02-1811-d34-2d00-66fd-96ff-fe79-a484.ip6.access.telenet.be  7.889 ms ..."
  */
 function parseTracerouteOutput(output: string): TracerouteHop[] {
     const hops: TracerouteHop[] = [];
     const lines = output.split('\n');
 
+    // Regex patterns
+    const IPv4_PATTERN = /^\d+\.\d+\.\d+\.\d+$/;
+    const IPv6_PATTERN = /^[0-9a-fA-F:]+:[0-9a-fA-F:]+$/;
+    // Pattern for dashed IPv6 in hostname (e.g., 2a02-1811-d34-2d00-66fd-96ff-fe79-a484)
+    const DASHED_IPv6_PATTERN = /^([0-9a-fA-F]+-[0-9a-fA-F-]+)/;
+
     for (const line of lines) {
         // Skip header and empty lines
-        if (!line.trim() || line.includes('traceroute to')) continue;
+        if (!line.trim() || line.includes('traceroute to') || line.includes('traceroute6 to')) continue;
 
         // Match hop number at start
         const hopMatch = line.match(/^\s*(\d+)\s+/);
@@ -45,6 +54,7 @@ function parseTracerouteOutput(output: string): TracerouteHop[] {
         const hopNum = parseInt(hopMatch[1], 10);
 
         // Check for timeout (* * *)
+        // Still include in results to preserve hop position
         if (line.includes('* * *')) {
             hops.push({
                 hop: hopNum,
@@ -55,24 +65,65 @@ function parseTracerouteOutput(output: string): TracerouteHop[] {
             continue;
         }
 
-        // Parse IP/hostname and RTT
-        // Match patterns like: hostname (ip) rtt ms
-        // Or just: ip rtt ms
-        const ipMatch = line.match(/(\S+)\s+\((\d+\.\d+\.\d+\.\d+)\)|(\d+\.\d+\.\d+\.\d+)/);
-        const rttMatch = line.match(/(\d+\.?\d*)\s*ms/);
+        // Get the rest of the line after the hop number
+        const restOfLine = line.substring(hopMatch[0].length);
 
-        if (ipMatch) {
-            const hostname = ipMatch[1] || null;
-            const ip = ipMatch[2] || ipMatch[3] || null;
-            const rtt = rttMatch ? parseFloat(rttMatch[1]) : null;
+        // Split by whitespace
+        const parts = restOfLine.trim().split(/\s+/);
+        if (parts.length < 2) continue;
 
-            hops.push({
-                hop: hopNum,
-                ip,
-                hostname: hostname !== ip ? hostname : null,
-                rtt
-            });
+        let hostname: string | null = null;
+        let ip: string | null = null;
+        let rtt: number | null = null;
+
+        // First part is either hostname or IP
+        const firstPart = parts[0];
+
+        // Check for IPv4 format: hostname (ip) or just ip
+        const ipv4ParenMatch = restOfLine.match(/(\S+)\s+\((\d+\.\d+\.\d+\.\d+)\)/);
+        if (ipv4ParenMatch) {
+            hostname = ipv4ParenMatch[1];
+            ip = ipv4ParenMatch[2];
+        } else if (IPv4_PATTERN.test(firstPart)) {
+            // Bare IPv4
+            ip = firstPart;
+        } else if (IPv6_PATTERN.test(firstPart)) {
+            // Bare IPv6 address (e.g., 2001:730:2300::5474:80a1)
+            ip = firstPart;
+        } else {
+            // Could be a hostname, possibly with embedded dashed IPv6
+            hostname = firstPart;
+
+            // Try to extract IPv6 from dashed hostname format
+            // Examples:
+            //   2a02-1811-d34-2d00-66fd-96ff-fe79-a484.ip6.access.telenet.be
+            //   unifi (local router, no IP)
+            const dashedMatch = hostname.match(DASHED_IPv6_PATTERN);
+            if (dashedMatch) {
+                const dashedPart = dashedMatch[1];
+                // Count segments - valid IPv6 should have 7 dashes (8 segments) for full address
+                // or fewer for compressed addresses
+                const segments = dashedPart.split('-');
+                if (segments.length >= 4 && segments.every(s => /^[0-9a-fA-F]{1,4}$/.test(s))) {
+                    // Convert dashes to colons for proper IPv6 format
+                    ip = segments.join(':');
+                }
+            }
         }
+
+        // Extract RTT (first "X.XXX ms" found)
+        const rttMatch = restOfLine.match(/(\d+\.?\d*)\s*ms/);
+        if (rttMatch) {
+            rtt = parseFloat(rttMatch[1]);
+        }
+
+        // Always add the hop to preserve position in trace
+        hops.push({
+            hop: hopNum,
+            ip,
+            hostname: hostname !== ip ? hostname : null,
+            rtt
+        });
     }
 
     return hops;
@@ -91,15 +142,23 @@ export async function runTraceroute(
 ): Promise<TracerouteResult> {
     const timestamp = Date.now();
 
+    // Detect if target is IPv6
+    const isIPv6 = target.includes(':');
+
     // Determine platform-specific command
     const platform = process.platform;
     let command: string;
 
     if (platform === 'darwin' || platform === 'linux') {
-        // macOS and Linux use 'traceroute'
-        command = `traceroute -m ${maxHops} -w ${timeout} ${target}`;
+        // macOS and Linux: use 'traceroute6' for IPv6, 'traceroute' for IPv4
+        // -I flag uses ICMP ECHO instead of UDP - better firewall penetration
+        if (isIPv6) {
+            command = `traceroute6 -I -m ${maxHops} -w ${timeout} ${target}`;
+        } else {
+            command = `traceroute -I -m ${maxHops} -w ${timeout} ${target}`;
+        }
     } else if (platform === 'win32') {
-        // Windows uses 'tracert'
+        // Windows uses 'tracert' for both (auto-detects IPv6)
         command = `tracert -h ${maxHops} -w ${timeout * 1000} ${target}`;
     } else {
         return {
@@ -127,6 +186,7 @@ export async function runTraceroute(
         const hops = parseTracerouteOutput(stdout);
 
         console.log(`[TracerouteProvider] Traced ${target}: ${hops.length} hops`);
+        console.log(`[TracerouteProvider] Parsed hops:`, JSON.stringify(hops, null, 2));
 
         return {
             target,
@@ -138,16 +198,26 @@ export async function runTraceroute(
     } catch (error: any) {
         console.error('[TracerouteProvider] Error:', error.message);
 
-        // Some output may still be available even if command "failed"
-        if (error.stdout) {
-            const hops = parseTracerouteOutput(error.stdout);
-            return {
-                target,
-                hops,
-                timestamp,
-                complete: false,
-                error: error.message
-            };
+        // traceroute6 may return non-zero exit code but still have valid output
+        // Check both stdout and stderr for usable traceroute data
+        const output = error.stdout || error.stderr || '';
+
+        if (output) {
+            console.log('[TracerouteProvider] Attempting to parse partial output:', output.substring(0, 200));
+            const hops = parseTracerouteOutput(output);
+
+            if (hops.length > 0) {
+                console.log(`[TracerouteProvider] Recovered ${hops.length} hops from error output`);
+                console.log(`[TracerouteProvider] Parsed hops:`, JSON.stringify(hops, null, 2));
+
+                return {
+                    target,
+                    hops,
+                    timestamp,
+                    complete: false,
+                    error: error.message
+                };
+            }
         }
 
         return {

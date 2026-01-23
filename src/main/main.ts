@@ -91,6 +91,10 @@ function createWindow(): void {
  * This captures ALL headers (no CORS restrictions!)
  * Headers are sent to the renderer process via IPC for DeepPacketAnalyser
  */
+
+// Store custom headers to inject into requests (set by renderer via IPC)
+let customRequestHeaders: Record<string, string> = {};
+
 function setupNetworkMonitoring(): void {
     // Track request start times for TTFB calculation
     const requestStartTimes = new Map<string, number>();
@@ -104,6 +108,29 @@ function setupNetworkMonitoring(): void {
                 requestStartTimes.set(details.resourceType + details.url, Date.now());
             }
             callback({});
+        }
+    );
+
+    // Inject custom headers into video requests
+    session.defaultSession.webRequest.onBeforeSendHeaders(
+        { urls: ['*://*/*'] },
+        (details, callback) => {
+            let requestHeaders = { ...details.requestHeaders };
+
+            // Inject custom headers for video requests
+            if (isVideoRequest(details.url) && Object.keys(customRequestHeaders).length > 0) {
+                // Skip Content Steering requests (.dcsm) to avoid CORS issues
+                if (!details.url.includes('.dcsm')) {
+                    for (const [key, value] of Object.entries(customRequestHeaders)) {
+                        requestHeaders[key] = value;
+                    }
+                    if (isDev && details.url.includes('.m3u8')) {
+                        console.log(`[Network] Injected headers for ${details.url.substring(0, 60)}...`);
+                    }
+                }
+            }
+
+            callback({ requestHeaders });
         }
     );
 
@@ -152,13 +179,55 @@ function setupNetworkMonitoring(): void {
         }
     );
 
+    // Capture server IP from completed requests
+    // onCompleted has access to the remote IP address
+    session.defaultSession.webRequest.onCompleted(
+        { urls: ['*://*/*'] },
+        (details) => {
+            // Cast to include ip property (exists at runtime but not in types)
+            const detailsWithIp = details as typeof details & { ip?: string };
+
+            // Only process video-related requests (manifests especially)
+            if (isVideoRequest(details.url) && detailsWithIp.ip) {
+                // Extract hostname from URL
+                let hostname: string | null = null;
+                try {
+                    hostname = new URL(details.url).hostname;
+                } catch { /* ignore */ }
+
+                // Send server IP to renderer
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('server-ip-resolved', {
+                        url: details.url,
+                        hostname: hostname,
+                        ip: detailsWithIp.ip,
+                        fromCache: details.fromCache,
+                        timestamp: Date.now()
+                    });
+                }
+
+                // Debug log for manifests in development
+                const isManifest = details.url.includes('.m3u8') || details.url.includes('.mpd');
+                if (isDev && isManifest) {
+                    console.log(`[Network] Server IP: ${detailsWithIp.ip} for ${hostname}`);
+                }
+            }
+        }
+    );
+
     console.log('[Electron] Network monitoring enabled - headers will be sent to renderer');
 }
 
 /**
  * Check if a URL is a video-related request (manifest or segment)
+ * Excludes localhost requests to avoid metrics noise from dev server
  */
 function isVideoRequest(url: string): boolean {
+    // Exclude localhost/127.0.0.1 requests (dev server, Vite, etc.)
+    if (url.includes('localhost') || url.includes('127.0.0.1')) {
+        return false;
+    }
+
     return url.includes('.m3u8') ||
         url.includes('.mpd') ||
         url.includes('.ts') ||
@@ -197,6 +266,19 @@ function setupIpcHandlers(): void {
         } catch (error: any) {
             console.error('[Electron] Traceroute failed:', error.message);
         }
+    });
+
+    // Handle custom header injection requests
+    // This allows the renderer to specify headers to inject into video requests
+    ipcMain.on('set-custom-headers', (event, headers: Record<string, string>) => {
+        customRequestHeaders = headers || {};
+        console.log('[Electron] Custom headers updated:', Object.keys(customRequestHeaders));
+    });
+
+    // Handle clear custom headers
+    ipcMain.on('clear-custom-headers', () => {
+        customRequestHeaders = {};
+        console.log('[Electron] Custom headers cleared');
     });
 
     console.log('[Electron] IPC handlers registered');
