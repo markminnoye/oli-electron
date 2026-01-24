@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Allow the app to access location services -->
+    <key>com.apple.security.personal-information.location</key>
+    <true/>
+    
+    <!-- Allow outgoing network connections (for API calls) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    
+    <!-- Allow the app to be debugged (for development) -->
+    <key>com.apple.security.get-task-allow</key>
+    <true/>
+</dict>
+</plist>

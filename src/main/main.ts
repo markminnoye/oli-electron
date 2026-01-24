@@ -15,7 +15,7 @@ process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 
 import { app, BrowserWindow, session, ipcMain } from 'electron';
 import path from 'path';
-import { runTraceroute, extractHostnameFromUrl } from './TracerouteProvider.js';
+import { runTracerouteStreaming, extractHostnameFromUrl } from './TracerouteProvider.js';
 
 // __dirname is available in CommonJS (our tsconfig uses module: CommonJS)
 
@@ -244,8 +244,8 @@ function isVideoRequest(url: string): boolean {
  * Sets up IPC handlers for renderer requests
  */
 function setupIpcHandlers(): void {
-    // Handle traceroute requests
-    ipcMain.on('run-traceroute', async (event, host: string) => {
+    // Handle traceroute requests - now uses streaming for real-time hop updates
+    ipcMain.on('run-traceroute', (event, host: string) => {
         console.log(`[Electron] Traceroute requested for: ${host}`);
 
         // Extract hostname if URL was passed
@@ -256,16 +256,24 @@ function setupIpcHandlers(): void {
             return;
         }
 
-        try {
-            const result = await runTraceroute(target, 20, 2);
-
-            // Send result to renderer
-            if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('traceroute-result', result);
-            }
-        } catch (error: any) {
-            console.error('[Electron] Traceroute failed:', error.message);
-        }
+        // Use streaming traceroute for real-time hop updates
+        runTracerouteStreaming(
+            target,
+            // onHop: Send each hop as it's discovered
+            (hop) => {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('traceroute-hop', hop);
+                }
+            },
+            // onComplete: Send final result
+            (result) => {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('traceroute-result', result);
+                }
+            },
+            20, // maxHops
+            2   // timeout per hop
+        );
     });
 
     // Handle custom header injection requests
@@ -286,6 +294,7 @@ function setupIpcHandlers(): void {
 
 // App lifecycle events
 app.whenReady().then(() => {
+    setupPermissions();
     setupNetworkMonitoring();
     setupIpcHandlers();
     createWindow();
@@ -297,6 +306,36 @@ app.whenReady().then(() => {
         }
     });
 });
+
+/**
+ * Setup permission handlers for web APIs
+ * This enables HTML5 Geolocation API (navigator.geolocation) in the renderer process
+ */
+function setupPermissions(): void {
+    // Handle permission requests from the renderer process
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+        const allowedPermissions = [
+            'geolocation',  // Enable navigator.geolocation
+            'media',        // Enable camera/mic if needed
+        ];
+
+        if (allowedPermissions.includes(permission)) {
+            console.log(`[Electron] Granting permission: ${permission}`);
+            callback(true);
+        } else {
+            console.log(`[Electron] Denying permission: ${permission}`);
+            callback(false);
+        }
+    });
+
+    // Also handle permission checks (for APIs that check before requesting)
+    session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
+        const allowedPermissions = ['geolocation', 'media'];
+        return allowedPermissions.includes(permission);
+    });
+
+    console.log('[Electron] Permission handlers configured (geolocation enabled)');
+}
 
 // Quit when all windows are closed (except on macOS)
 app.on('window-all-closed', () => {

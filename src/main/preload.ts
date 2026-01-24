@@ -56,16 +56,37 @@ const electronAPI = {
     },
 
     /**
-     * Subscribe to traceroute results
-     * @param callback - Function called with traceroute hops
+     * Subscribe to individual traceroute hops (real-time streaming)
+     * @param callback - Function called with each hop as discovered
      * @returns Cleanup function to unsubscribe
      */
-    onTracerouteResult: (callback: (hops: Array<{
+    onTracerouteHop: (callback: (hop: {
         hop: number;
-        hostname: string;
-        ip: string;
-        rtt: number;
-    }>) => void) => {
+        hostname: string | null;
+        ip: string | null;
+        rtt: number | null;
+    }) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+        ipcRenderer.on('traceroute-hop', handler);
+        return () => ipcRenderer.removeListener('traceroute-hop', handler);
+    },
+
+    /**
+     * Subscribe to traceroute completion (full result)
+     * @param callback - Function called with complete traceroute result
+     * @returns Cleanup function to unsubscribe
+     */
+    onTracerouteResult: (callback: (result: {
+        target: string;
+        hops: Array<{
+            hop: number;
+            hostname: string | null;
+            ip: string | null;
+            rtt: number | null;
+        }>;
+        timestamp: number;
+        complete: boolean;
+    }) => void) => {
         const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
         ipcRenderer.on('traceroute-result', handler);
         return () => ipcRenderer.removeListener('traceroute-result', handler);
@@ -113,12 +134,5 @@ const electronAPI = {
 
 // Expose the API to the renderer
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);
-
-// Type declaration for the renderer
-declare global {
-    interface Window {
-        electronAPI: typeof electronAPI;
-    }
-}
 
 console.log('[Preload] Electron API exposed to renderer');

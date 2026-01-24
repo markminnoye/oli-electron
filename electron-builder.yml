@@ -19,6 +19,13 @@ files:
 mac:
   category: public.app-category.utilities
   icon: build/oli-electron.icns
+  # Entitlements for location services
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # Add location usage description to Info.plist
+  extendInfo:
+    NSLocationWhenInUseUsageDescription: "oli CDN Demo uses your location to visualize the network path from your device to the video server."
+    NSLocationUsageDescription: "oli CDN Demo uses your location to visualize the network path from your device to the video server."
   target:
     - dmg
     - zip
