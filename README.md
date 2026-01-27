@@ -1,89 +1,55 @@
-# oli-electron
+# o|i CDN Demo - Desktop App
 
-Electron desktop app for the **o|i CDN Demo** - bypasses browser CORS restrictions and enables native network monitoring.
+A standalone desktop application for visualizing video streaming delivery paths and CDN performance.
 
-![Architecture](docs/architecture.png)
+![o|i CDN Demo](build/oli-electron.jpg)
 
-## Quick Start
+## ⬇️ Download
 
-```bash
-# Clone with submodules
-git clone --recursive https://github.com/markminnoye/oli-electron.git
-cd oli-electron
+**[Download the latest release](https://github.com/markminnoye/oli-electron/releases/latest)**
 
-# Install dependencies (includes webapp)
-npm install
+- **macOS (Apple Silicon)**: Download the `.dmg` file
 
-# Start development
-npm run dev
-```
+> ⚠️ The app is not code-signed. On first launch, right-click → Open, or allow it in System Preferences → Security & Privacy.
 
-## Architecture
+## ✨ Features
 
-The Electron app wraps the existing [o-i-demo](https://github.com/markminnoye/o-i-demo) webapp as a **git submodule**. This allows:
+### 🗺️ Network Path Visualization
+- Real-time traceroute showing your video delivery path
+- Geographic visualization of network hops on the map
+- Click any hop to view details (location, latency, IP address)
 
-- ✅ **CORS Bypass** - No browser security restrictions on HTTP headers
-- ✅ **Network Monitoring** - Capture ALL HTTP headers (no CORS limits)
-- ✅ **Native APIs** - Traceroute, DNS lookup, system geolocation
-- ✅ **Easy Sync** - One command to update: `git submodule update --remote`
+### 📊 Performance Monitoring
+- Live video quality metrics (bitrate, resolution, buffer health)
+- CDN response times and HTTP headers
+- Time to First Frame (TTFF) tracking
 
-## Project Structure
+### 🔓 No Browser Restrictions
+- Direct access to CDN manifests and segments (no CORS)
+- Full HTTP header capture
+- Real network traceroute via native `mtr` integration
 
-```
-oli-electron/
-├── app/                    # ← git submodule (o-i-demo)
-│   └── app/                # Vite webapp
-├── src/main/               # Electron main process
-│   ├── main.ts             # Entry point, window creation
-│   └── preload.ts          # IPC bridge to webapp
-├── docs/                   # Documentation & images
-├── package.json            # Electron dependencies
-└── electron-builder.yml    # Build configuration
-```
+## 🚀 Getting Started
 
-## Syncing Webapp Updates
+1. Download and install the app
+2. Enter a video URL or choose a demo stream
+3. Watch the network path animate on the map
+4. Click path segments to explore hop details
 
-When the webapp (`o-i-demo`) gets new features:
+## 🌐 Web Version
 
-```bash
-# Pull latest from webapp repo
-git submodule update --remote app
+Try the web version at **[o-i-demo.vercel.app](https://o-i-demo.vercel.app)**
 
-# Commit the update
-git add app
-git commit -m "chore: sync webapp to latest"
-```
+The desktop app provides additional capabilities not available in browsers due to security restrictions.
 
-## Scripts
+## 🛠️ For Developers
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start Vite + Electron in development mode |
-| `npm run build` | Build webapp + Electron for production |
-| `npm run build:electron` | Package Electron app for distribution |
+See [AI_README.md](AI_README.md) for:
+- Project architecture
+- Build instructions
+- Git submodule workflow
+- Development setup
 
-## Development
-
-The dev mode runs:
-1. **Vite** dev server at `http://localhost:5173`
-2. **Electron** loads the webapp from Vite (with DevTools open)
-
-Network monitoring logs video-related requests (`.m3u8`, `.mpd`, `.ts`, `.m4s`) to the console.
-
-## Implementation Status
-
-- ✅ **Phase 1**: Minimal Electron wrapper (CORS bypass, dev/prod modes)
-- 🚧 **Phase 2**: Network monitoring (HTTP headers → DeepPacketAnalyser)
-- 📋 **Phase 3**: Traceroute & geolocation providers
-
-## Tech Stack
-
-- **Electron** v33 - Desktop framework
-- **TypeScript** - Type-safe code
-- **Vite** - Fast dev server & bundler
-- **concurrently** - Run Vite + Electron together
-- **wait-on** - Ensure Vite is ready before Electron starts
-
-## License
+## 📄 License
 
 MIT
