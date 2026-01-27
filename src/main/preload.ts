@@ -39,16 +39,54 @@ const electronAPI = {
     },
 
     /**
-     * Subscribe to traceroute results
-     * @param callback - Function called with traceroute hops
+     * Subscribe to server IP resolution events
+     * @param callback - Function called with server IP data
      * @returns Cleanup function to unsubscribe
      */
-    onTracerouteResult: (callback: (hops: Array<{
-        hop: number;
-        hostname: string;
+    onServerIpResolved: (callback: (data: {
+        url: string;
+        hostname: string | null;
         ip: string;
-        rtt: number;
-    }>) => void) => {
+        fromCache: boolean;
+        timestamp: number;
+    }) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+        ipcRenderer.on('server-ip-resolved', handler);
+        return () => ipcRenderer.removeListener('server-ip-resolved', handler);
+    },
+
+    /**
+     * Subscribe to individual traceroute hops (real-time streaming)
+     * @param callback - Function called with each hop as discovered
+     * @returns Cleanup function to unsubscribe
+     */
+    onTracerouteHop: (callback: (hop: {
+        hop: number;
+        hostname: string | null;
+        ip: string | null;
+        rtt: number | null;
+    }) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+        ipcRenderer.on('traceroute-hop', handler);
+        return () => ipcRenderer.removeListener('traceroute-hop', handler);
+    },
+
+    /**
+     * Subscribe to traceroute completion (full result)
+     * @param callback - Function called with complete traceroute result
+     * @returns Cleanup function to unsubscribe
+     */
+    onTracerouteResult: (callback: (result: {
+        target: string;
+        hops: Array<{
+            hop: number;
+            hostname: string | null;
+            ip: string | null;
+            rtt: number | null;
+        }>;
+        timestamp: number;
+        complete: boolean;
+    }) => void) => {
         const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
         ipcRenderer.on('traceroute-result', handler);
         return () => ipcRenderer.removeListener('traceroute-result', handler);
@@ -76,17 +114,25 @@ const electronAPI = {
      */
     getGeolocation: (): Promise<{ lat: number; lon: number; accuracy: number } | null> => {
         return ipcRenderer.invoke('get-geolocation');
+    },
+
+    /**
+     * Set custom headers to inject into video requests
+     * @param headers - Object with header name -> value pairs
+     */
+    setCustomHeaders: (headers: Record<string, string>) => {
+        ipcRenderer.send('set-custom-headers', headers);
+    },
+
+    /**
+     * Clear all custom headers
+     */
+    clearCustomHeaders: () => {
+        ipcRenderer.send('clear-custom-headers');
     }
 };
 
 // Expose the API to the renderer
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);
-
-// Type declaration for the renderer
-declare global {
-    interface Window {
-        electronAPI: typeof electronAPI;
-    }
-}
 
 console.log('[Preload] Electron API exposed to renderer');
