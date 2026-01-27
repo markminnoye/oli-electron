@@ -2,7 +2,7 @@
 
 A standalone desktop application for visualizing video streaming delivery paths and CDN performance.
 
-![o|i CDN Demo](build/oli-electron.jpg)
+![o|i CDN Demo](assets/oli_floppy.png)
 
 ## ⬇️ Download
 
