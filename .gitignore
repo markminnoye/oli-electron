@@ -28,3 +28,4 @@ out/
 
 # TypeScript cache
 *.tsbuildinfo
+*.af
