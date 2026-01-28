@@ -19,6 +19,11 @@ A standalone desktop application for visualizing video streaming delivery paths 
 - Geographic visualization of network hops on the map
 - Click any hop to view details (location, latency, IP address)
 
+### ⚖️ Scenario Bake-Off (Comparison View)
+- Side-by-side performance analysis of multiple video streams
+- Real-time QoE metrics Comparison (TTFB, RTT, Buffer Health)
+- Compare global CDNs against local infrastructure
+
 ### 📊 Performance Monitoring
 - Live video quality metrics (bitrate, resolution, buffer health)
 - CDN response times and HTTP headers
