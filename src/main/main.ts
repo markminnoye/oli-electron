@@ -63,6 +63,11 @@ function createWindow(): void {
 
         // Open DevTools in development
         mainWindow.webContents.openDevTools();
+
+        // Clear session storage just once to fix "ignored permission" issues
+        // This is a brute-force fix for the "permission blocked" error
+        session.defaultSession.clearStorageData({ storages: ['localstorage', 'cookies', 'indexdb'] });
+        console.log('[Electron] Cleared session storage to reset permissions');
     } else {
         // Production: load from built files
         const indexPath = path.join(__dirname, '../../app/app/dist/index.html');

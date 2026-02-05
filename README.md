@@ -50,6 +50,68 @@ See [AI_README.md](AI_README.md) for:
 - Git submodule workflow
 - Development setup
 
-## 📄 License
+## Development
+
+The dev mode runs:
+1. **Vite** dev server at `http://localhost:5173`
+2. **Electron** loads the webapp from Vite (with DevTools open)
+
+Network monitoring logs video-related requests (`.m3u8`, `.mpd`, `.ts`, `.m4s`) to the console.
+
+## Implementation Status
+
+- ✅ **Phase 1**: Minimal Electron wrapper (CORS bypass, dev/prod modes)
+- ✅ **Phase 2**: Network monitoring (HTTP headers → DeepPacketAnalyser)
+- ✅ **Phase 3**: Traceroute & Smart Geolocation Engine
+- 🚧 **Phase 4**: Progressive path visualization & real-time hop discovery
+
+## Smart Geolocation Engine
+
+The app implements a multi-source geolocation resolver to accurately locate CDN edge nodes:
+
+1.  **CDN-Specific Headers**: Extracts location codes from `x-amz-cf-pop`, `x-served-by`, `cf-ray`, etc.
+2.  **Hostname Parsing**: Reverse DNS analysis for location patterns (e.g., `ams`, `fra`).
+3.  **RTT Validation**: Measures round-trip time and compares it against theoretical speed-of-light limits to detect impossible or unlikely geodata.
+4.  **Multi-source Fallback**: Bridges data from ip-api, MaxMind (when available), and native Electron capabilities.
+
+### Data Flow Architecture
+
+```mermaid
+graph TD
+    subgraph "Electron (Main Process)"
+        Main[main.ts]
+        Session[session.webRequest]
+        IPC[IPC Channel]
+        Native[Native APIs: DNS/Traceroute]
+    end
+
+    subgraph "Webapp (Submodule)"
+        Bridge[ElectronBridge]
+        DPA[DeepPacketAnalyser]
+        SGR[SmartGeoResolver]
+        GLV[GeoLocationValidator]
+        Map[GeoMap / PathNavigator]
+    end
+
+    Session -- "Capture Headers" --> Main
+    Main -- "Send via IPC" --> IPC
+    IPC -- "Expose to Webapp" --> Bridge
+    Bridge -- "Analyze Headers" --> DPA
+    DPA -- "Resolve Locations" --> SGR
+    SGR -- "Validate via RTT" --> GLV
+    SGR -- "Fallback/Compare" --> Native
+    SGR -- "Update Visuals" --> Map
+```
+
+## Tech Stack
+
+- **Electron** v33 - Desktop framework
+- **TypeScript** - Type-safe code
+- **Vite** - Fast dev server & bundler
+- **concurrently** - Run Vite + Electron together
+- **wait-on** - Ensure Vite is ready before Electron starts
+
+## License
+
 
 MIT
