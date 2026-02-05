@@ -14,6 +14,20 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
+// Singleton traceroute process tracking
+let activeTracerouteProcess: any = null;
+
+/**
+ * Stop any active traceroute process
+ */
+export function stopActiveTraceroute(): void {
+    if (activeTracerouteProcess) {
+        console.log('[TracerouteProvider] Killing active traceroute process...');
+        activeTracerouteProcess.kill();
+        activeTracerouteProcess = null;
+    }
+}
+
 export interface TracerouteHop {
     hop: number;
     ip: string | null;
@@ -366,7 +380,11 @@ export function runTracerouteStreaming(
 
     console.log(`[TracerouteProvider] Streaming: ${command} ${args.join(' ')}`);
 
+    // Kill any existing traceroute before starting a new one
+    stopActiveTraceroute();
+
     const child = spawn(command, args);
+    activeTracerouteProcess = child;
     let buffer = '';
 
     child.stdout.on('data', (data: Buffer) => {

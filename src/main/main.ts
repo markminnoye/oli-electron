@@ -184,6 +184,9 @@ function setupNetworkMonitoring(): void {
         }
     );
 
+    // Track resolved IPs to avoid spamming the renderer with the same event
+    const detectedIps = new Set<string>();
+
     // Capture server IP from completed requests
     // onCompleted has access to the remote IP address
     session.defaultSession.webRequest.onCompleted(
@@ -194,6 +197,12 @@ function setupNetworkMonitoring(): void {
 
             // Only process video-related requests (manifests especially)
             if (isVideoRequest(details.url, details.resourceType) && detailsWithIp.ip) {
+                const ip = detailsWithIp.ip;
+
+                // Only send once per IP to avoid renderer resets
+                if (detectedIps.has(ip)) return;
+                detectedIps.add(ip);
+
                 // Extract hostname from URL
                 let hostname: string | null = null;
                 try {
@@ -205,7 +214,7 @@ function setupNetworkMonitoring(): void {
                     mainWindow.webContents.send('server-ip-resolved', {
                         url: details.url,
                         hostname: hostname,
-                        ip: detailsWithIp.ip,
+                        ip: ip,
                         fromCache: details.fromCache,
                         timestamp: Date.now()
                     });
@@ -214,7 +223,7 @@ function setupNetworkMonitoring(): void {
                 // Debug log for manifests in development
                 const isManifest = details.url.includes('.m3u8') || details.url.includes('.mpd');
                 if (isDev && isManifest) {
-                    console.log(`[Network] Server IP: ${detailsWithIp.ip} for ${hostname}`);
+                    console.log(`[Network] Server IP: ${ip} for ${hostname}`);
                 }
             }
         }
