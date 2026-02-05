@@ -109,7 +109,7 @@ function setupNetworkMonitoring(): void {
         { urls: ['*://*/*'] },
         (details, callback) => {
             // Only track video-related requests
-            if (isVideoRequest(details.url)) {
+            if (isVideoRequest(details.url, details.resourceType)) {
                 requestStartTimes.set(details.resourceType + details.url, Date.now());
             }
             callback({});
@@ -123,7 +123,7 @@ function setupNetworkMonitoring(): void {
             let requestHeaders = { ...details.requestHeaders };
 
             // Inject custom headers for video requests
-            if (isVideoRequest(details.url) && Object.keys(customRequestHeaders).length > 0) {
+            if (isVideoRequest(details.url, details.resourceType) && Object.keys(customRequestHeaders).length > 0) {
                 // Skip Content Steering requests (.dcsm) to avoid CORS issues
                 if (!details.url.includes('.dcsm')) {
                     for (const [key, value] of Object.entries(customRequestHeaders)) {
@@ -144,7 +144,7 @@ function setupNetworkMonitoring(): void {
         { urls: ['*://*/*'] },
         (details, callback) => {
             // Only process video-related requests
-            if (isVideoRequest(details.url)) {
+            if (isVideoRequest(details.url, details.resourceType)) {
                 const requestKey = details.resourceType + details.url;
                 const startTime = requestStartTimes.get(requestKey);
                 const ttfb = startTime ? Date.now() - startTime : 0;
@@ -193,7 +193,7 @@ function setupNetworkMonitoring(): void {
             const detailsWithIp = details as typeof details & { ip?: string };
 
             // Only process video-related requests (manifests especially)
-            if (isVideoRequest(details.url) && detailsWithIp.ip) {
+            if (isVideoRequest(details.url, details.resourceType) && detailsWithIp.ip) {
                 // Extract hostname from URL
                 let hostname: string | null = null;
                 try {
@@ -227,22 +227,40 @@ function setupNetworkMonitoring(): void {
  * Check if a URL is a video-related request (manifest or segment)
  * Excludes localhost requests to avoid metrics noise from dev server
  */
-function isVideoRequest(url: string): boolean {
+function isVideoRequest(url: string, resourceType?: string): boolean {
     // Exclude localhost/127.0.0.1 requests (dev server, Vite, etc.)
     if (url.includes('localhost') || url.includes('127.0.0.1')) {
         return false;
     }
 
-    return url.includes('.m3u8') ||
+    // Exclude the Vercel app domain itself and analytics
+    // if (url.includes('vercel.app') || url.includes('vercel-insights')) {
+    //     return false;
+    // }
+
+    // Check for video manifest or segment patterns
+    const isVideoPattern =
+        url.includes('.m3u8') ||
         url.includes('.mpd') ||
         url.includes('.ts') ||
         url.includes('.m4s') ||
         url.includes('.m4v') ||
         url.includes('.mp4') ||
         url.includes('.cmfv') ||
-        url.includes('.cmfa') ||
-        url.includes('segment') ||
-        url.includes('chunk');
+        url.includes('.cmfa');
+
+    if (!isVideoPattern) return false;
+
+    // For server-ip-resolved events (traceroute triggers), we only want to 
+    // trigger for manifests or media segments, not for every script/asset 
+    // that might match "segment" or "chunk" in its name.
+    if (resourceType) {
+        // Only allow XHR/Fetch/Media/Other (for stream types)
+        const allowedTypes = ['xhr', 'fetch', 'media', 'other'];
+        if (!allowedTypes.includes(resourceType)) return false;
+    }
+
+    return true;
 }
 
 /**
