@@ -158,6 +158,13 @@ Located in `app/app/src/services/DeepPacketAnalyser.ts`:
 - `Server: MediaPackage` or `x-amz-cf-pop` present → AWS
 - URL contains `telenet-ops.be` → Telenet
 
+### Smart Geolocation Strategy
+Located in `app/app/src/services/geo/SmartGeoResolver.ts` and `GeoLocationValidator.ts`:
+- **Tier 1: Headers** (IATA codes in `x-amz-cf-pop`, `cf-ray`, `x-served-by`)
+- **Tier 2: DNS** (Location patterns in reverse DNS hostnames)
+- **Tier 3: IP Geo** (MaxMind/IP-API baseline)
+- **Validation**: Round-Trip Time (RTT) vs. Speed of Light check to prevent Anycast/Database errors.
+
 ### Environment Configuration
 - `.env` - Development (localhost)
 - `.env.production` - Production API URL (`https://server.lab.oli-cdn.io/api`)
