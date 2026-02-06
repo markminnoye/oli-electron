@@ -15,7 +15,17 @@ process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 
 import { app, BrowserWindow, session, ipcMain } from 'electron';
 import path from 'path';
+import { readFileSync } from 'fs';
 import { runTracerouteStreaming, extractHostnameFromUrl } from './TracerouteProvider.js';
+
+// Read version from package.json
+let appVersion = '';
+try {
+    const pkg = JSON.parse(readFileSync(path.join(__dirname, '../../package.json'), 'utf8'));
+    appVersion = pkg.version;
+} catch (e) {
+    console.error('[Electron] Failed to read app version:', e);
+}
 
 // __dirname is available in CommonJS (our tsconfig uses module: CommonJS)
 
@@ -37,7 +47,7 @@ function createWindow(): void {
         height: 1080,
         minWidth: 1280,
         minHeight: 720,
-        title: 'o|i CDN Demo',
+        title: `o|i CDN Demo ${appVersion ? `(version ${appVersion})` : ''}`,
         webPreferences: {
             // Disable web security to bypass CORS restrictions
             // This is the main reason we're using Electron!
