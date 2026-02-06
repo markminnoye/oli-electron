@@ -129,6 +129,13 @@ const electronAPI = {
      */
     clearCustomHeaders: () => {
         ipcRenderer.send('clear-custom-headers');
+    },
+
+    /**
+     * Clear the main process IP detection cache
+     */
+    resetNetworkCache: () => {
+        ipcRenderer.send('network:reset-cache');
     }
 };
 

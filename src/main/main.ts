@@ -122,10 +122,14 @@ function setupNetworkMonitoring(): void {
         (details, callback) => {
             let requestHeaders = { ...details.requestHeaders };
 
-            // Inject custom headers for video requests
-            if (isVideoRequest(details.url, details.resourceType) && Object.keys(customRequestHeaders).length > 0) {
-                // Skip Content Steering requests (.dcsm) to avoid CORS issues
-                if (!details.url.includes('.dcsm')) {
+            // Bypass local cache for video requests
+            if (isVideoRequest(details.url, details.resourceType)) {
+                requestHeaders['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+                requestHeaders['Pragma'] = 'no-cache';
+                requestHeaders['Expires'] = '0';
+
+                // Also inject custom headers if any are set
+                if (Object.keys(customRequestHeaders).length > 0 && !details.url.includes('.dcsm')) {
                     for (const [key, value] of Object.entries(customRequestHeaders)) {
                         requestHeaders[key] = value;
                     }
@@ -178,14 +182,18 @@ function setupNetworkMonitoring(): void {
                     const cdn = flatHeaders['x-cdn'] || flatHeaders['server'] || 'unknown';
                     console.log(`[Network] ${details.method} ${details.url.substring(0, 80)}... (CDN: ${cdn}, TTFB: ${ttfb}ms)`);
                 }
+
+                // Prevent local caching of video assets by overriding response headers
+                if (details.responseHeaders) {
+                    details.responseHeaders['Cache-Control'] = ['no-cache, no-store, must-revalidate'];
+                    details.responseHeaders['Pragma'] = ['no-cache'];
+                    details.responseHeaders['Expires'] = ['0'];
+                }
             }
 
             callback({ responseHeaders: details.responseHeaders });
         }
     );
-
-    // Track resolved IPs to avoid spamming the renderer with the same event
-    const detectedIps = new Set<string>();
 
     // Capture server IP from completed requests
     // onCompleted has access to the remote IP address
@@ -231,6 +239,12 @@ function setupNetworkMonitoring(): void {
 
     console.log('[Electron] Network monitoring enabled - headers will be sent to renderer');
 }
+
+/**
+ * Track resolved IPs to avoid spamming the renderer with the same event
+ * This is module-scoped so it can be cleared via IPC
+ */
+const detectedIps = new Set<string>();
 
 /**
  * Check if a URL is a video-related request (manifest or segment)
@@ -319,6 +333,12 @@ function setupIpcHandlers(): void {
     ipcMain.on('clear-custom-headers', () => {
         customRequestHeaders = {};
         console.log('[Electron] Custom headers cleared');
+    });
+
+    // Handle network cache reset
+    ipcMain.on('network:reset-cache', () => {
+        detectedIps.clear();
+        console.log('[Electron] Network IP cache cleared');
     });
 
     console.log('[Electron] IPC handlers registered');
