@@ -2,6 +2,16 @@
 
 > **For human-readable documentation, see [README.md](./README.md)**
 
+> [!IMPORTANT]
+> **Submodule Synchronization**: Before making any changes or answering questions about the web application logic, ALWAYS ensure the `app/` submodule is up to date by running:
+> `git submodule update --remote --merge`
+
+> [!TIP]
+> **Keep Dependencies Fresh**: Periodically check for updates in all three layers (`.`, `app/app`, `app/server`) using `npm outdated`.
+> - **Electron**: `npm outdated` (Root)
+> - **Webapp**: `cd app/app && npm outdated`
+> - **Server**: `cd app/server && npm outdated`
+
 ## Project Overview
 
 This is an **Electron desktop application** wrapping the o|i CDN Demo webapp. The primary purpose is to bypass browser CORS restrictions and enable comprehensive network monitoring including full HTTP header capture.
