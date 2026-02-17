@@ -1,6 +1,6 @@
 {
   "name": "oli-electron",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Electron desktop app for o|i CDN Demo - bypasses CORS and enables native network monitoring",
   "main": "dist/main/main.js",
   "scripts": {
