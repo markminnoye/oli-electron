@@ -63,6 +63,23 @@ if (isElectron()) {
 
 **See:** [`app/docs/ELECTRON_BUNDLE_OPTIMIZATION.md`](app/docs/ELECTRON_BUNDLE_OPTIMIZATION.md) for full guide.
 
+### IPC Channel Reference
+
+All channels are registered in `setupIpcHandlers()` in `src/main/main.ts`.
+
+| Direction | Channel | Type | Description |
+|-----------|---------|------|-------------|
+| main → renderer | `http-headers` | push | Every video response — headers, TTFB, statusCode |
+| main → renderer | `traceroute-hop` | push | Each hop as discovered (streaming) |
+| main → renderer | `traceroute-result` | push | Final traceroute result |
+| main → renderer | `server-ip-resolved` | push | Resolved CDN server IP (deduplicated) |
+| renderer → main | `run-traceroute` | `ipcMain.on` | Trigger traceroute for a hostname/URL |
+| renderer → main | `set-custom-headers` | `ipcMain.on` | Inject custom headers into video requests |
+| renderer → main | `clear-custom-headers` | `ipcMain.on` | Clear injected headers |
+| renderer → main | `network:reset-cache` | `ipcMain.on` | Clear detected IP cache |
+| renderer ↔ main | `get-public-ip` | `ipcMain.handle` | Returns public IPv4 from api.ipify.org |
+| renderer ↔ main | `get-geolocation` | `ipcMain.handle` | Returns `null` (renderer's GeoLocationService handles via `navigator.geolocation`) |
+
 ### Header Capture Flow (Phase 2)
 
 ```
@@ -117,6 +134,16 @@ npm run build:vite   # Vite build only (webapp)
 npm run build:electron  # Package to DMG
 ```
 
+## Submodule Commands
+
+```bash
+npm run submodule:init    # First-time clone setup (--init --recursive)
+npm run submodule:update  # Pull latest from app/ remote (--remote --merge)
+npm run submodule:status  # Show current submodule SHA and branch
+
+bash .scripts/check-submodule.sh  # Verify app/ is on the same branch as main repo
+```
+
 ## Environment Configuration
 
 - `.env` - Development (localhost)
@@ -165,21 +192,28 @@ git push origin develop
 - **Isolation**: Production (main) stays stable while development happens
 - **Easy rollback**: Switch main repo branches to get matching submodule versions
 
-The webapp is a **git submodule** at `app/`. Always use:
+The webapp is a **git submodule** at `app/`. Use the npm scripts:
 ```bash
-git submodule update --remote --merge  # Sync webapp
+npm run submodule:update  # Sync webapp (git submodule update --remote --merge)
+npm run submodule:status  # Check current SHA/branch
+bash .scripts/check-submodule.sh  # Verify branch alignment before committing
 ```
+
+A **GitHub Actions workflow** (`.github/workflows/submodule-check.yml`) runs on push/PR to `main` and `develop` to catch branch misalignment in CI.
 
 ## Important Files for AI Agents
 
 | File | Purpose |
 |------|---------|
-| `src/main/main.ts` | Header capture, window creation |
-| `src/main/preload.ts` | IPC bridge API |
-| `app/app/src/services/ElectronBridge.ts` | Receives headers from Electron |
+| `src/main/main.ts` | Header capture, window creation, IPC handlers |
+| `src/main/preload.ts` | IPC bridge API (contextBridge → window.electronAPI) |
+| `app/app/src/services/ElectronBridge.ts` | Receives headers and IPC responses from Electron |
 | `app/app/src/services/DeepPacketAnalyser.ts` | CDN detection logic |
+| `app/app/src/services/GeoLocationService.ts` | Hybrid GPS + IP geolocation (renderer-side) |
 | `electron-builder.yml` | Build configuration |
 | `.env.production` | API endpoints |
+| `.scripts/check-submodule.sh` | Verifies app/ branch matches main repo branch |
+| `.github/workflows/submodule-check.yml` | CI workflow for submodule branch alignment |
 
 ## Common Tasks
 
