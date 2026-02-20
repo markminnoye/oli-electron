@@ -351,6 +351,24 @@ function setupIpcHandlers(): void {
         console.log('[Electron] Network IP cache cleared');
     });
 
+    // Return public IP via ipify
+    ipcMain.handle('get-public-ip', async () => {
+        try {
+            const response = await fetch('https://api.ipify.org?format=json');
+            const data = await response.json() as { ip: string };
+            return data.ip;
+        } catch (error) {
+            console.error('[Electron] Failed to get public IP:', error);
+            return null;
+        }
+    });
+
+    // Geolocation is handled by the renderer's GeoLocationService via navigator.geolocation
+    // (granted by setupPermissions). Return null to signal the renderer to use its own flow.
+    ipcMain.handle('get-geolocation', async () => {
+        return null;
+    });
+
     console.log('[Electron] IPC handlers registered');
 }
 
