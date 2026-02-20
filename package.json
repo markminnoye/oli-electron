@@ -11,7 +11,10 @@
     "build": "npm run build:vite && npm run build:electron",
     "build:vite": "cd app/app && npm run build",
     "build:electron": "npm run compile && electron-builder",
-    "postinstall": "cd app/app && npm install"
+    "postinstall": "cd app/app && npm install",
+    "submodule:init": "git submodule update --init --recursive",
+    "submodule:update": "git submodule update --remote --merge",
+    "submodule:status": "git submodule status"
   },
   "keywords": [
     "electron",

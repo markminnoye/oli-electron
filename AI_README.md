@@ -117,6 +117,16 @@ npm run build:vite   # Vite build only (webapp)
 npm run build:electron  # Package to DMG
 ```
 
+## Submodule Commands
+
+```bash
+npm run submodule:init    # First-time clone setup (--init --recursive)
+npm run submodule:update  # Pull latest from app/ remote (--remote --merge)
+npm run submodule:status  # Show current submodule SHA and branch
+
+bash .scripts/check-submodule.sh  # Verify app/ is on the same branch as main repo
+```
+
 ## Environment Configuration
 
 - `.env` - Development (localhost)
@@ -165,10 +175,14 @@ git push origin develop
 - **Isolation**: Production (main) stays stable while development happens
 - **Easy rollback**: Switch main repo branches to get matching submodule versions
 
-The webapp is a **git submodule** at `app/`. Always use:
+The webapp is a **git submodule** at `app/`. Use the npm scripts:
 ```bash
-git submodule update --remote --merge  # Sync webapp
+npm run submodule:update  # Sync webapp (git submodule update --remote --merge)
+npm run submodule:status  # Check current SHA/branch
+bash .scripts/check-submodule.sh  # Verify branch alignment before committing
 ```
+
+A **GitHub Actions workflow** (`.github/workflows/submodule-check.yml`) runs on push/PR to `main` and `develop` to catch branch misalignment in CI.
 
 ## Important Files for AI Agents
 
@@ -180,6 +194,8 @@ git submodule update --remote --merge  # Sync webapp
 | `app/app/src/services/DeepPacketAnalyser.ts` | CDN detection logic |
 | `electron-builder.yml` | Build configuration |
 | `.env.production` | API endpoints |
+| `.scripts/check-submodule.sh` | Verifies app/ branch matches main repo branch |
+| `.github/workflows/submodule-check.yml` | CI workflow for submodule branch alignment |
 
 ## Common Tasks
 
