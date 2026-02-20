@@ -1,0 +1,46 @@
+#!/bin/bash
+# Git pre-commit hook: check that Electron modules are not statically imported
+# in the webapp source (excluding their own files and type-only imports).
+#
+# Install: bash .scripts/install-hooks.sh
+
+# Only check staged .ts/.tsx files in app/app/src/
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^app/app/src/.*\.tsx?$' || true)
+
+if [ -z "$STAGED_FILES" ]; then
+  exit 0
+fi
+
+ELECTRON_PATTERN="ElectronBridge|ElectronTopologyService"
+OFFENDING=""
+
+for file in $STAGED_FILES; do
+  # Skip the Electron module files themselves
+  case "$file" in
+    *ElectronBridge.ts|*ElectronTopologyService.ts) continue ;;
+  esac
+
+  # Look for static (non-type, non-dynamic) imports of Electron modules
+  # Allow: import type, { isElectron } (tiny guard function)
+  MATCHES=$(grep -n "^import " "$file" 2>/dev/null \
+    | grep -v "import type" \
+    | grep -v "{ isElectron }" \
+    | grep -E "$ELECTRON_PATTERN" \
+    || true)
+
+  if [ -n "$MATCHES" ]; then
+    OFFENDING="${OFFENDING}\n  ${file}:\n${MATCHES}\n"
+  fi
+done
+
+if [ -n "$OFFENDING" ]; then
+  echo "✗ Pre-commit: static imports of Electron modules detected:"
+  echo -e "$OFFENDING"
+  echo "  Use dynamic imports inside an isElectron() guard instead."
+  echo "  See: app/docs/ELECTRON_BUNDLE_OPTIMIZATION.md"
+  echo ""
+  echo "  To bypass (not recommended): git commit --no-verify"
+  exit 1
+fi
+
+exit 0

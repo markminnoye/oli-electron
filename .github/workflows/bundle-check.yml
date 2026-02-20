@@ -1,0 +1,32 @@
+name: Bundle Size Check
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'app/app/src/**'
+      - 'app/app/package.json'
+      - 'app/app/vite.config.ts'
+
+jobs:
+  check-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/app/package-lock.json
+
+      - name: Install webapp dependencies
+        run: cd app/app && npm ci
+
+      - name: Build webapp
+        run: cd app/app && npm run build
+
+      - name: Check for Electron code leakage & bundle size
+        run: bash .scripts/check-bundle.sh --skip-build

@@ -61,7 +61,21 @@ if (isElectron()) {
 }
 ```
 
+**Allowed static import:** `import { isElectron } from './ElectronBridge'` — tiny guard function, tree-shakeable.
+
 **See:** [`app/docs/ELECTRON_BUNDLE_OPTIMIZATION.md`](app/docs/ELECTRON_BUNDLE_OPTIMIZATION.md) for full guide.
+
+#### Bundle Monitoring Tooling
+
+| Tool | Command | Purpose |
+|------|---------|---------|
+| Bundle check script | `bash .scripts/check-bundle.sh` | Checks Electron leakage in main chunk, enforces 2.5 MB budget, lints static imports |
+| Bundle check (no build) | `bash .scripts/check-bundle.sh --skip-build` | Same checks against existing `dist/` |
+| Bundle visualizer | `cd app/app && npm run analyze` | Builds and opens `stats.html` (rollup-plugin-visualizer) |
+| Pre-commit hook | Auto-runs on `git commit` | Blocks static imports of Electron modules in staged files |
+| CI workflow | `.github/workflows/bundle-check.yml` | Runs bundle checks on PRs touching `app/app/src/` |
+
+**Setup:** Run `bash .scripts/install-hooks.sh` after cloning to activate the pre-commit hook.
 
 ### IPC Channel Reference
 
@@ -213,7 +227,11 @@ A **GitHub Actions workflow** (`.github/workflows/submodule-check.yml`) runs on 
 | `electron-builder.yml` | Build configuration |
 | `.env.production` | API endpoints |
 | `.scripts/check-submodule.sh` | Verifies app/ branch matches main repo branch |
+| `.scripts/check-bundle.sh` | Bundle size budget + Electron leakage + static import checks |
+| `.scripts/pre-commit` | Git pre-commit hook (blocks static Electron imports) |
+| `.scripts/install-hooks.sh` | Installs git hooks (run after cloning) |
 | `.github/workflows/submodule-check.yml` | CI workflow for submodule branch alignment |
+| `.github/workflows/bundle-check.yml` | CI workflow for bundle size + leakage checks on PRs |
 
 ## Common Tasks
 
