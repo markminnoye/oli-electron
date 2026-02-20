@@ -1,6 +1,6 @@
 {
   "name": "oli-electron",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Electron desktop app for o|i CDN Demo - bypasses CORS and enables native network monitoring",
   "main": "dist/main/main.js",
   "scripts": {
@@ -25,7 +25,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "concurrently": "^9.0.0",
-    "electron": "^33.0.0",
+    "electron": "^33.4.11",
     "electron-builder": "^25.0.0",
     "typescript": "^5.6.0",
     "wait-on": "^9.0.3"
