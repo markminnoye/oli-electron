@@ -26,11 +26,15 @@
   "author": "Mark Minnoye",
   "license": "MIT",
   "devDependencies": {
+    "@types/debug": "^4.1.12",
     "@types/node": "^22.0.0",
     "concurrently": "^9.0.0",
     "electron": "^33.4.11",
     "electron-builder": "^25.0.0",
     "typescript": "^5.6.0",
     "wait-on": "^9.0.3"
+  },
+  "dependencies": {
+    "debug": "^4.4.3"
   }
 }

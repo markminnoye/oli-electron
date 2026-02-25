@@ -38,7 +38,9 @@
       "Bash(bash .scripts/check-bundle.sh --skip-build)",
       "Bash(bash .scripts/pre-commit:*)",
       "mcp__github-mcp-server__create_issue",
-      "Bash(git submodule update:*)"
+      "Bash(git submodule update:*)",
+      "Bash(gh pr list:*)",
+      "mcp__github-mcp-server__list_pull_requests"
     ]
   }
 }

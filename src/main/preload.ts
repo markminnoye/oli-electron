@@ -8,6 +8,9 @@
  */
 
 import { contextBridge, ipcRenderer } from 'electron';
+import { createLogger } from './logger.js';
+
+const preloadLog = createLogger('Preload');
 
 /**
  * API exposed to the renderer process
@@ -142,4 +145,4 @@ const electronAPI = {
 // Expose the API to the renderer
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);
 
-console.log('[Preload] Electron API exposed to renderer');
+preloadLog.info('Electron API exposed to renderer');

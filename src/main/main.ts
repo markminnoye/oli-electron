@@ -17,6 +17,10 @@ import { app, BrowserWindow, session, ipcMain } from 'electron';
 import path from 'path';
 import { readFileSync } from 'fs';
 import { runTracerouteStreaming, extractHostnameFromUrl } from './TracerouteProvider.js';
+import { createLogger } from './logger.js';
+
+const electronLog = createLogger('Electron');
+const networkLog  = createLogger('Network');
 
 // Read version from package.json
 let appVersion = '';
@@ -24,12 +28,12 @@ try {
     const pkg = JSON.parse(readFileSync(path.join(__dirname, '../../package.json'), 'utf8'));
     appVersion = pkg.version;
 } catch (e) {
-    console.error('[Electron] Failed to read app version:', e);
+    electronLog.error('Failed to read app version:', e);
 }
 
 // __dirname is available in CommonJS (our tsconfig uses module: CommonJS)
 
-/** Whether we're running in development mode */
+/** Whether we're running in development mode (controls DevTools + load source, NOT logging — see logger.ts) */
 const isDev = !app.isPackaged;
 
 /** The dev server URL (Vite default) */
@@ -68,7 +72,7 @@ function createWindow(): void {
     // Load the webapp
     if (isDev) {
         // Development: load from Vite dev server
-        console.log('[Electron] Loading from Vite dev server:', DEV_SERVER_URL);
+        electronLog.info('Loading from Vite dev server:', DEV_SERVER_URL);
         mainWindow.loadURL(DEV_SERVER_URL);
 
         // Open DevTools in development
@@ -77,11 +81,11 @@ function createWindow(): void {
         // Clear session storage just once to fix "ignored permission" issues
         // This is a brute-force fix for the "permission blocked" error
         session.defaultSession.clearStorageData({ storages: ['localstorage', 'cookies', 'indexdb'] });
-        console.log('[Electron] Cleared session storage to reset permissions');
+        electronLog.info('Cleared session storage to reset permissions');
     } else {
         // Production: load from built files
         const indexPath = path.join(__dirname, '../../app/app/dist/index.html');
-        console.log('[Electron] Loading from built files:', indexPath);
+        electronLog.info('Loading from built files:', indexPath);
         mainWindow.loadFile(indexPath);
     }
 
@@ -92,12 +96,12 @@ function createWindow(): void {
 
     // Log when page loads
     mainWindow.webContents.on('did-finish-load', () => {
-        console.log('[Electron] Page loaded successfully');
+        electronLog.info('Page loaded successfully');
     });
 
     // Log navigation errors
     mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
-        console.error('[Electron] Failed to load:', errorCode, errorDescription);
+        electronLog.error('Failed to load:', errorCode, errorDescription);
     });
 }
 
@@ -143,8 +147,8 @@ function setupNetworkMonitoring(): void {
                     for (const [key, value] of Object.entries(customRequestHeaders)) {
                         requestHeaders[key] = value;
                     }
-                    if (isDev && details.url.includes('.m3u8')) {
-                        console.log(`[Network] Injected headers for ${details.url.substring(0, 60)}...`);
+                    if (details.url.includes('.m3u8')) {
+                        networkLog.log(`Injected headers for ${details.url.substring(0, 60)}...`);
                     }
                 }
             }
@@ -187,11 +191,9 @@ function setupNetworkMonitoring(): void {
                     });
                 }
 
-                // Debug log for development
-                if (isDev) {
-                    const cdn = flatHeaders['x-cdn'] || flatHeaders['server'] || 'unknown';
-                    console.log(`[Network] ${details.method} ${details.url.substring(0, 80)}... (CDN: ${cdn}, TTFB: ${ttfb}ms)`);
-                }
+                // Debug log
+                const cdn = flatHeaders['x-cdn'] || flatHeaders['server'] || 'unknown';
+                networkLog.log(`${details.method} ${details.url.substring(0, 80)}... (CDN: ${cdn}, TTFB: ${ttfb}ms)`);
 
                 // Prevent local caching of video assets by overriding response headers
                 if (details.responseHeaders) {
@@ -238,16 +240,16 @@ function setupNetworkMonitoring(): void {
                     });
                 }
 
-                // Debug log for manifests in development
+                // Debug log for manifests
                 const isManifest = details.url.includes('.m3u8') || details.url.includes('.mpd');
-                if (isDev && isManifest) {
-                    console.log(`[Network] Server IP: ${ip} for ${hostname}`);
+                if (isManifest) {
+                    networkLog.log(`Server IP: ${ip} for ${hostname}`);
                 }
             }
         }
     );
 
-    console.log('[Electron] Network monitoring enabled - headers will be sent to renderer');
+    electronLog.info('Network monitoring enabled - headers will be sent to renderer');
 }
 
 /**
@@ -302,13 +304,13 @@ function isVideoRequest(url: string, resourceType?: string): boolean {
 function setupIpcHandlers(): void {
     // Handle traceroute requests - now uses streaming for real-time hop updates
     ipcMain.on('run-traceroute', (event, host: string) => {
-        console.log(`[Electron] Traceroute requested for: ${host}`);
+        electronLog.log(`Traceroute requested for: ${host}`);
 
         // Extract hostname if URL was passed
         const target = host.includes('://') ? extractHostnameFromUrl(host) : host;
 
         if (!target) {
-            console.error('[Electron] Invalid traceroute target:', host);
+            electronLog.error('Invalid traceroute target:', host);
             return;
         }
 
@@ -336,19 +338,19 @@ function setupIpcHandlers(): void {
     // This allows the renderer to specify headers to inject into video requests
     ipcMain.on('set-custom-headers', (event, headers: Record<string, string>) => {
         customRequestHeaders = headers || {};
-        console.log('[Electron] Custom headers updated:', Object.keys(customRequestHeaders));
+        electronLog.info('Custom headers updated:', Object.keys(customRequestHeaders));
     });
 
     // Handle clear custom headers
     ipcMain.on('clear-custom-headers', () => {
         customRequestHeaders = {};
-        console.log('[Electron] Custom headers cleared');
+        electronLog.info('Custom headers cleared');
     });
 
     // Handle network cache reset
     ipcMain.on('network:reset-cache', () => {
         detectedIps.clear();
-        console.log('[Electron] Network IP cache cleared');
+        electronLog.info('Network IP cache cleared');
     });
 
     // Return public IP via ipify
@@ -358,7 +360,7 @@ function setupIpcHandlers(): void {
             const data = await response.json() as { ip: string };
             return data.ip;
         } catch (error) {
-            console.error('[Electron] Failed to get public IP:', error);
+            electronLog.error('Failed to get public IP:', error);
             return null;
         }
     });
@@ -369,7 +371,7 @@ function setupIpcHandlers(): void {
         return null;
     });
 
-    console.log('[Electron] IPC handlers registered');
+    electronLog.info('IPC handlers registered');
 }
 
 // App lifecycle events
@@ -400,10 +402,10 @@ function setupPermissions(): void {
         ];
 
         if (allowedPermissions.includes(permission)) {
-            console.log(`[Electron] Granting permission: ${permission}`);
+            electronLog.log(`Granting permission: ${permission}`);
             callback(true);
         } else {
-            console.log(`[Electron] Denying permission: ${permission}`);
+            electronLog.log(`Denying permission: ${permission}`);
             callback(false);
         }
     });
@@ -414,7 +416,7 @@ function setupPermissions(): void {
         return allowedPermissions.includes(permission);
     });
 
-    console.log('[Electron] Permission handlers configured (geolocation enabled)');
+    electronLog.info('Permission handlers configured (geolocation enabled)');
 }
 
 // Quit when all windows are closed (except on macOS)
