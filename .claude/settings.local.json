@@ -40,7 +40,12 @@
       "mcp__github-mcp-server__create_issue",
       "Bash(git submodule update:*)",
       "Bash(gh pr list:*)",
-      "mcp__github-mcp-server__list_pull_requests"
+      "mcp__github-mcp-server__list_pull_requests",
+      "WebFetch(domain:electron-vite.org)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(npm view:*)",
+      "Bash(xargs:*)"
     ]
   }
 }

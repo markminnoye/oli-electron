@@ -17,12 +17,14 @@ This file provides guidance to AI agents when working with code in this reposito
 3. [Key Technologies](#key-technologies)
 4. [Commands](#commands)
 5. [Key Rules & Constraints](#key-rules--constraints)
-6. [Critical Implementation Details](#critical-implementation-details)
-7. [Module System](#module-system)
-8. [Environment Configuration](#environment-configuration)
-9. [Git Workflow](#git-workflow)
-10. [Important Files](#important-files)
-11. [Development Hints](#development-hints)
+6. [Workflow Rules](#workflow-rules)
+7. [Tools](#tools)
+8. [Critical Implementation Details](#critical-implementation-details)
+9. [Module System](#module-system)
+10. [Environment Configuration](#environment-configuration)
+11. [Git Workflow](#git-workflow)
+12. [Important Files](#important-files)
+13. [Development Hints](#development-hints)
 
 ## Project Overview
 
@@ -174,7 +176,21 @@ GeoMap renders network path visualization
 
 ### Git Operations
 - **Use GitHub MCP** for all git operations instead of shell commands (when available)
-- **Only commit when explicitly requested by the user**
+- **Default working branch is `develop`** — never commit directly to `main` unless explicitly told to
+- **After finishing a task, sync branches** if needed before moving on
+- **Always link commits to relevant issue numbers** in commit messages (e.g., `fixes #42`)
+
+## Workflow Rules
+
+### Task Scope
+- When the user asks to **plan** or **investigate** an issue, **DO NOT start implementing**. Present the plan first and wait for explicit approval before writing or editing any code.
+
+## Tools
+
+### GitHub Integration
+- Use the **GitHub MCP server** for all issue operations (create, comment, close).
+- If MCP tools fail with type errors, **retry with string-coerced parameters** before falling back to the `gh` CLI.
+- Always link commits to relevant issue numbers in commit messages (e.g., `fixes #42`, `closes #7`).
 
 ## Critical Implementation Details
 
@@ -358,3 +374,7 @@ Edit `app/app/src/main.ts` — change `currentScenario` default value (BakeOffVi
 - **Production mode**: Remove `mainWindow.webContents.openDevTools()` call
 - **IPC communication**: Add `console.log()` in preload.ts and main.ts to trace messages
 - **Header capture**: Check `session.webRequest.onHeadersReceived()` callback in main.ts
+
+### Debugging Approach
+- **Stay focused on the user's actual goal.** Don't rabbit-hole into environment setup issues (e.g., dev server configs) when the user wants to test specific functionality.
+- **When fixing metrics/calculations**, validate the fix doesn't introduce regressions before committing. Run the full test suite (when available) and manually verify edge cases first.
