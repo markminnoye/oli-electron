@@ -10,21 +10,34 @@ A standalone desktop application for visualizing video streaming delivery paths 
 
 - **macOS (Apple Silicon)**: Download the `.dmg` file
 
-> ⚠️ The app is not code-signed. On first launch, right-click → Open, or allow it in System Preferences → Security & Privacy.
+### Resolving the "App is damaged" Error on macOS
+
+Because this demo app is not signed with an Apple Developer certificate, macOS Gatekeeper may assign a quarantine attribute to the downloaded file. This results in an error message stating: **"oli CDN Demo is damaged and can't be opened. You should move it to the Trash."**
+
+To bypass this security feature and allow the app to run, open an **Terminal** window and execute the following command after moving the app to your Applications folder:
+
+```bash
+xattr -cr "/Applications/oli CDN Demo.app"
+```
+
+_This command removes the `com.apple.quarantine` extended attribute, signaling to macOS that you trust the application._
 
 ## ✨ Features
 
 ### 🗺️ Network Path Visualization
+
 - Real-time traceroute showing your video delivery path
 - Geographic visualization of network hops on the map
 - Click any hop to view details (location, latency, IP address)
 
 ### 📊 Performance Monitoring
+
 - Live video quality metrics (bitrate, resolution, buffer health)
 - CDN response times and HTTP headers
 - Time to First Frame (TTFF) tracking
 
 ### 🔓 No Browser Restrictions
+
 - Direct access to CDN manifests and segments (no CORS)
 - Full HTTP header capture
 - Real network traceroute via native `mtr` integration
@@ -45,6 +58,7 @@ The desktop app provides additional capabilities not available in browsers due t
 ## 🛠️ For Developers
 
 See [AI_README.md](AI_README.md) for:
+
 - Project architecture
 - Build instructions
 - Git submodule workflow
@@ -53,6 +67,7 @@ See [AI_README.md](AI_README.md) for:
 ## Development
 
 The dev mode runs:
+
 1. **Vite** dev server at `http://localhost:5173`
 2. **Electron** loads the webapp from Vite (with DevTools open)
 
@@ -112,6 +127,5 @@ graph TD
 - **wait-on** - Ensure Vite is ready before Electron starts
 
 ## License
-
 
 MIT
