@@ -57,28 +57,12 @@ The desktop app provides additional capabilities not available in browsers due t
 
 ## 🛠️ For Developers
 
-See [AI_README.md](AI_README.md) for:
+See [AGENTS.md](AGENTS.md) for:
 
 - Project architecture
 - Build instructions
 - Git submodule workflow
 - Development setup
-
-## Development
-
-The dev mode runs:
-
-1. **Vite** dev server at `http://localhost:5173`
-2. **Electron** loads the webapp from Vite (with DevTools open)
-
-Network monitoring logs video-related requests (`.m3u8`, `.mpd`, `.ts`, `.m4s`) to the console.
-
-## Implementation Status
-
-- ✅ **Phase 1**: Minimal Electron wrapper (CORS bypass, dev/prod modes)
-- ✅ **Phase 2**: Network monitoring (HTTP headers → DeepPacketAnalyser)
-- ✅ **Phase 3**: Traceroute & Smart Geolocation Engine
-- 🚧 **Phase 4**: Progressive path visualization & real-time hop discovery
 
 ## Smart Geolocation Engine
 
@@ -118,13 +102,14 @@ graph TD
     SGR -- "Update Visuals" --> Map
 ```
 
-## Tech Stack
+## 💻 Tech Stack
 
-- **Electron** v33 - Desktop framework
-- **TypeScript** - Type-safe code
-- **Vite** - Fast dev server & bundler
-- **concurrently** - Run Vite + Electron together
-- **wait-on** - Ensure Vite is ready before Electron starts
+- **Electron** v33 — Desktop framework with CORS bypass
+- **TypeScript** — Core language for shell & webapp
+- **Vite** — Fast frontend build tool & dev server
+- **electron-builder** — Production packaging & DMG creation
+- **Native Integration** — `mtr` (traceroute), `dig` (DNS), `xattr` (macOS attributes)
+- **Webapp Core** — THEOplayer, Shaka Player, Video.js, Chart.js, Leaflet
 
 ## License
 

@@ -1,4 +1,5 @@
 # AGENTS.md
+
 This file provides guidance to AI agents when working with code in this repository.
 
 > [!IMPORTANT]
@@ -7,11 +8,13 @@ This file provides guidance to AI agents when working with code in this reposito
 
 > [!TIP]
 > **Keep Dependencies Fresh**: Periodically check for updates in all three layers (`.`, `app/app`, `app/server`) using `npm outdated`.
+>
 > - **Electron**: `npm outdated` (Root)
 > - **Webapp**: `cd app/app && npm outdated`
 > - **Server**: `cd app/server && npm outdated`
 
 ## Table of Contents
+
 1. [Project Overview](#project-overview)
 2. [Architecture](#architecture)
 3. [Key Technologies](#key-technologies)
@@ -25,6 +28,7 @@ This file provides guidance to AI agents when working with code in this reposito
 11. [Git Workflow](#git-workflow)
 12. [Important Files](#important-files)
 13. [Development Hints](#development-hints)
+14. [Git History & Syncing](#git-history--syncing)
 
 ## Project Overview
 
@@ -86,6 +90,7 @@ graph TB
 ### Key Data Flows
 
 #### HTTP Header Capture Flow
+
 ```
 Video segment request
   ↓
@@ -103,6 +108,7 @@ UI updates (metrics, map visualization)
 ```
 
 #### Traceroute Flow
+
 ```
 User starts stream
   ↓
@@ -131,32 +137,38 @@ GeoMap renders network path visualization
 ## Commands
 
 ### Development
+
 - `npm run dev` - Start both Vite dev server (webapp) and Electron in dev mode (opens DevTools)
 - `npm run dev:vite` - Start only Vite dev server on port 5173
 - `npm run dev:electron` - Wait for Vite, compile TypeScript, run Electron
 
 ### Build & Compile
+
 - `npm run compile` - Compile TypeScript for main/preload processes (preload.js → preload.cjs)
 - `npm run build` - Full production build (webapp + Electron distributable)
 - `npm run build:vite` - Build webapp only (outputs to `app/app/dist`)
 - `npm run build:electron` - Compile TypeScript and package with electron-builder (outputs to `release/`)
 
 ### Git Submodule
+
 - `npm run submodule:init` - First-time clone setup (`--init --recursive`)
 - `npm run submodule:update` - Pull latest from app/ remote (`--remote --merge`)
 - `npm run submodule:status` - Show current submodule SHA and branch
 - `bash .scripts/check-submodule.sh` - Verify app/ is on the same branch as main repo
 
 ### Testing
+
 - No automated tests configured
 
 ## Key Rules & Constraints
 
 ### Code Organization
+
 - **Webapp is a git submodule** at `app/` — Always sync with `git submodule update --remote --merge`
 - **Branching strategy**: Main repo branch should match submodule branch (main→main, develop→develop, feature/xyz→feature/xyz)
 
 ### Bundle Optimization (CRITICAL)
+
 - **Electron-specific code must use dynamic imports** to prevent bloating webapp bundle
 - The `app/` submodule is shared between Electron and web deployments
 - **BAD**: `import { ElectronBridge } from './ElectronBridge'` (adds ~736 lines to webapp)
@@ -165,16 +177,19 @@ GeoMap renders network path visualization
 - See `app/docs/ELECTRON_BUNDLE_OPTIMIZATION.md` for full guide
 
 ### Module System
+
 - **Main process**: CommonJS (`tsconfig.main.json` with `"module": "CommonJS"`)
 - **Preload script**: CommonJS, compiled to `.cjs` extension (`preload.js` → `preload.cjs`)
 - **Webapp**: ES Modules (Vite handles bundling)
 
 ### Security
+
 - **webSecurity disabled intentionally** to bypass CORS restrictions (main purpose of Electron wrapper)
 - Never commit secrets or API keys
 - Document complex functions, especially those handling IPC or native processes
 
 ### Git Operations
+
 - **Use GitHub MCP** for all git operations instead of shell commands (when available)
 - **Default working branch is `develop`** — never commit directly to `main` unless explicitly told to
 - **After finishing a task, sync branches** if needed before moving on
@@ -183,11 +198,13 @@ GeoMap renders network path visualization
 ## Workflow Rules
 
 ### Task Scope
+
 - When the user asks to **plan** or **investigate** an issue, **DO NOT start implementing**. Present the plan first and wait for explicit approval before writing or editing any code.
 
 ## Tools
 
 ### GitHub Integration
+
 - Use the **GitHub MCP server** for all issue operations (create, comment, close).
 - If MCP tools fail with type errors, **retry with string-coerced parameters** before falling back to the `gh` CLI.
 - Always link commits to relevant issue numbers in commit messages (e.g., `fixes #42`, `closes #7`).
@@ -196,13 +213,13 @@ GeoMap renders network path visualization
 
 ### Bundle Monitoring Tooling
 
-| Tool | Command | Purpose |
-|------|---------|---------|
-| Bundle check script | `bash .scripts/check-bundle.sh` | Checks Electron leakage in main chunk, enforces 2.5 MB budget, lints static imports |
-| Bundle check (no build) | `bash .scripts/check-bundle.sh --skip-build` | Same checks against existing `dist/` |
-| Bundle visualizer | `cd app/app && npm run analyze` | Builds and opens `stats.html` (rollup-plugin-visualizer) |
-| Pre-commit hook | Auto-runs on `git commit` | Blocks static imports of Electron modules in staged files |
-| CI workflow | `.github/workflows/bundle-check.yml` | Runs bundle checks on PRs touching `app/app/src/` |
+| Tool                    | Command                                      | Purpose                                                                             |
+| ----------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Bundle check script     | `bash .scripts/check-bundle.sh`              | Checks Electron leakage in main chunk, enforces 2.5 MB budget, lints static imports |
+| Bundle check (no build) | `bash .scripts/check-bundle.sh --skip-build` | Same checks against existing `dist/`                                                |
+| Bundle visualizer       | `cd app/app && npm run analyze`              | Builds and opens `stats.html` (rollup-plugin-visualizer)                            |
+| Pre-commit hook         | Auto-runs on `git commit`                    | Blocks static imports of Electron modules in staged files                           |
+| CI workflow             | `.github/workflows/bundle-check.yml`         | Runs bundle checks on PRs touching `app/app/src/`                                   |
 
 **Setup:** Run `bash .scripts/install-hooks.sh` after cloning to activate the pre-commit hook.
 
@@ -210,32 +227,32 @@ GeoMap renders network path visualization
 
 All channels are registered in `setupIpcHandlers()` in `src/main/main.ts`.
 
-| Direction | Channel | Type | Description |
-|-----------|---------|------|-------------|
-| main → renderer | `http-headers` | push | Every video response — headers, TTFB, statusCode |
-| main → renderer | `traceroute-hop` | push | Each hop as discovered (streaming) |
-| main → renderer | `traceroute-result` | push | Final traceroute result |
-| main → renderer | `server-ip-resolved` | push | Resolved CDN server IP (deduplicated) |
-| renderer → main | `run-traceroute` | `ipcMain.on` | Trigger traceroute for a hostname/URL |
-| renderer → main | `set-custom-headers` | `ipcMain.on` | Inject custom headers into video requests |
-| renderer → main | `clear-custom-headers` | `ipcMain.on` | Clear injected headers |
-| renderer → main | `network:reset-cache` | `ipcMain.on` | Clear detected IP cache |
-| renderer ↔ main | `get-public-ip` | `ipcMain.handle` | Returns public IPv4 from api.ipify.org |
-| renderer ↔ main | `get-geolocation` | `ipcMain.handle` | Returns `null` (renderer's GeoLocationService handles via `navigator.geolocation`) |
+| Direction       | Channel                | Type             | Description                                                                        |
+| --------------- | ---------------------- | ---------------- | ---------------------------------------------------------------------------------- |
+| main → renderer | `http-headers`         | push             | Every video response — headers, TTFB, statusCode                                   |
+| main → renderer | `traceroute-hop`       | push             | Each hop as discovered (streaming)                                                 |
+| main → renderer | `traceroute-result`    | push             | Final traceroute result                                                            |
+| main → renderer | `server-ip-resolved`   | push             | Resolved CDN server IP (deduplicated)                                              |
+| renderer → main | `run-traceroute`       | `ipcMain.on`     | Trigger traceroute for a hostname/URL                                              |
+| renderer → main | `set-custom-headers`   | `ipcMain.on`     | Inject custom headers into video requests                                          |
+| renderer → main | `clear-custom-headers` | `ipcMain.on`     | Clear injected headers                                                             |
+| renderer → main | `network:reset-cache`  | `ipcMain.on`     | Clear detected IP cache                                                            |
+| renderer ↔ main | `get-public-ip`        | `ipcMain.handle` | Returns public IPv4 from api.ipify.org                                             |
+| renderer ↔ main | `get-geolocation`      | `ipcMain.handle` | Returns `null` (renderer's GeoLocationService handles via `navigator.geolocation`) |
 
 ### CDN Detection Logic
 
 Located in `app/app/src/services/DeepPacketAnalyser.ts`, the `analyzeFromElectron()` method detects CDNs via:
 
-| Header | CDN |
-|--------|-----|
-| `x-cdn: oli` | o\|i |
-| `x-cdn: akamai` or `Server: AkamaiGHost` | Akamai |
-| `x-cdn: gcore` | G-Core |
-| `x-cdn: fastly` or `Server: *Varnish*` | Fastly |
-| `Server: MediaPackage` or `x-amz-cf-pop` present | AWS |
-| URL contains `telenet-ops.be` | Telenet |
-| Any other `x-cdn` value | Uses header value directly |
+| Header                                           | CDN                        |
+| ------------------------------------------------ | -------------------------- |
+| `x-cdn: oli`                                     | o\|i                       |
+| `x-cdn: akamai` or `Server: AkamaiGHost`         | Akamai                     |
+| `x-cdn: gcore`                                   | G-Core                     |
+| `x-cdn: fastly` or `Server: *Varnish*`           | Fastly                     |
+| `Server: MediaPackage` or `x-amz-cf-pop` present | AWS                        |
+| URL contains `telenet-ops.be`                    | Telenet                    |
+| Any other `x-cdn` value                          | Uses header value directly |
 
 ### Location Parsing
 
@@ -245,6 +262,7 @@ Located in `app/app/src/services/DeepPacketAnalyser.ts`, the `analyzeFromElectro
 ### Smart Geolocation Strategy
 
 Located in `app/app/src/services/geo/SmartGeoResolver.ts` and `GeoLocationValidator.ts`:
+
 - **Tier 1: Headers** (IATA codes in `x-amz-cf-pop`, `cf-ray`, `x-served-by`)
 - **Tier 2: DNS** (Location patterns in reverse DNS hostnames)
 - **Tier 3: IP Geo** (MaxMind/IP-API baseline)
@@ -259,13 +277,14 @@ Located in `app/app/src/services/geo/SmartGeoResolver.ts` and `GeoLocationValida
 
 - **main** - Production releases
 - **develop** - Active development
-- **feature/*** - Feature branches from develop
+- **feature/\*** - Feature branches from develop
 
 ### Submodule Branching Strategy
 
 **Critical**: The `app/` submodule has its own git repository with matching branch names.
 
 **Rule:** Each branch in main repo should point to the **same-named branch** in the submodule:
+
 ```
 oli-electron/                app/ submodule
 ─────────────────────────────────────────
@@ -275,6 +294,7 @@ feature/xyz branch   →       feature/xyz branch
 ```
 
 **Workflow for new features:**
+
 ```bash
 # 1. Start in app submodule
 cd app
@@ -297,36 +317,37 @@ A **GitHub Actions workflow** (`.github/workflows/submodule-check.yml`) runs on 
 
 ## Important Files
 
-| File | Purpose |
-|------|---------|
-| `src/main/main.ts` | Header capture, window creation, IPC handlers |
-| `src/main/preload.ts` | IPC bridge API (contextBridge → window.electronAPI) |
-| `app/app/src/services/ElectronBridge.ts` | Receives headers and IPC responses from Electron |
-| `app/app/src/services/DeepPacketAnalyser.ts` | CDN detection logic |
-| `app/app/src/services/GeoLocationService.ts` | Hybrid GPS + IP geolocation (renderer-side) |
-| `electron-builder.yml` | Build configuration |
-| `.env.production` | API endpoints |
-| `.scripts/check-submodule.sh` | Verifies app/ branch matches main repo branch |
-| `.scripts/check-bundle.sh` | Bundle size budget + Electron leakage + static import checks |
-| `.scripts/pre-commit` | Git pre-commit hook (blocks static Electron imports) |
-| `.scripts/install-hooks.sh` | Installs git hooks (run after cloning) |
-| `.github/workflows/submodule-check.yml` | CI workflow for submodule branch alignment |
-| `.github/workflows/bundle-check.yml` | CI workflow for bundle size + leakage checks on PRs |
+| File                                         | Purpose                                                      |
+| -------------------------------------------- | ------------------------------------------------------------ |
+| `src/main/main.ts`                           | Header capture, window creation, IPC handlers                |
+| `src/main/preload.ts`                        | IPC bridge API (contextBridge → window.electronAPI)          |
+| `app/app/src/services/ElectronBridge.ts`     | Receives headers and IPC responses from Electron             |
+| `app/app/src/services/DeepPacketAnalyser.ts` | CDN detection logic                                          |
+| `app/app/src/services/GeoLocationService.ts` | Hybrid GPS + IP geolocation (renderer-side)                  |
+| `electron-builder.yml`                       | Build configuration                                          |
+| `.env.production`                            | API endpoints                                                |
+| `.scripts/check-submodule.sh`                | Verifies app/ branch matches main repo branch                |
+| `.scripts/check-bundle.sh`                   | Bundle size budget + Electron leakage + static import checks |
+| `.scripts/pre-commit`                        | Git pre-commit hook (blocks static Electron imports)         |
+| `.scripts/install-hooks.sh`                  | Installs git hooks (run after cloning)                       |
+| `.github/workflows/submodule-check.yml`      | CI workflow for submodule branch alignment                   |
+| `.github/workflows/bundle-check.yml`         | CI workflow for bundle size + leakage checks on PRs          |
 
 ## Development Hints
 
 ### Adding a New IPC Channel
+
 1. Add IPC handler in `src/main/main.ts`:
    ```typescript
-   ipcMain.handle('my-channel', async (event, arg) => {
-       // Handle request
-       return result;
+   ipcMain.handle("my-channel", async (event, arg) => {
+     // Handle request
+     return result;
    });
    ```
 2. Expose in `src/main/preload.ts` via `contextBridge`:
    ```typescript
-   contextBridge.exposeInMainWorld('electronAPI', {
-       myMethod: (arg) => ipcRenderer.invoke('my-channel', arg)
+   contextBridge.exposeInMainWorld("electronAPI", {
+     myMethod: (arg) => ipcRenderer.invoke("my-channel", arg),
    });
    ```
 3. Use in webapp via `window.electronAPI`:
@@ -335,14 +356,17 @@ A **GitHub Actions workflow** (`.github/workflows/submodule-check.yml`) runs on 
    ```
 
 ### Adding a New CDN Detection Pattern
+
 Edit `app/app/src/services/DeepPacketAnalyser.ts` in the `analyzeFromElectron()` method's CDN detection logic.
 
 ### Modifying the Build Process
+
 - **Electron packaging**: Edit `electron-builder.yml`
 - **Main/preload TypeScript**: Edit `tsconfig.main.json` / `tsconfig.preload.json`
 - **Webapp bundling**: Edit `app/app/vite.config.ts`
 
 ### Working with the Submodule
+
 1. **Starting a feature**:
    ```bash
    cd app
@@ -361,20 +385,57 @@ Edit `app/app/src/services/DeepPacketAnalyser.ts` in the `analyzeFromElectron()`
    ```
 
 ### Adding Native Node.js Functionality
+
 - Implement in `src/main/` (main process has full Node.js access)
 - Create IPC handler to expose to renderer
 - Use `ElectronBridge.ts` to consume in webapp
 - Example: See `TracerouteProvider.ts` for executing native commands
 
 ### Change Default Scenario
+
 Edit `app/app/src/main.ts` — change `currentScenario` default value (BakeOffView vs ContentSteering).
 
 ### Debugging
+
 - **Development mode**: DevTools open automatically, check Console/Network tabs
 - **Production mode**: Remove `mainWindow.webContents.openDevTools()` call
 - **IPC communication**: Add `console.log()` in preload.ts and main.ts to trace messages
 - **Header capture**: Check `session.webRequest.onHeadersReceived()` callback in main.ts
 
 ### Debugging Approach
+
 - **Stay focused on the user's actual goal.** Don't rabbit-hole into environment setup issues (e.g., dev server configs) when the user wants to test specific functionality.
 - **When fixing metrics/calculations**, validate the fix doesn't introduce regressions before committing. Run the full test suite (when available) and manually verify edge cases first.
+
+## Git History & Syncing
+
+### History Rewrite (Feb 2026)
+
+The Git history of both the root repository (`oli-electron`) and the submodule (`o-i-demo`) has been rewritten to remove all "Co-Authored-By: Claude" references.
+
+> [!IMPORTANT]
+> **No Co-Authoring**: Do NOT add "Co-Authored-By" tags to commit messages unless explicitly requested by the user.
+
+### Syncing Other Workspaces
+
+If you are in a workspace that was created before the history rewrite, you MUST perform a hard reset to sync with the new SHAs on GitHub.
+
+**1. Reset Root Repository:**
+
+```bash
+git fetch origin
+git reset --hard origin/$(git branch --show-current)
+```
+
+**2. Reset Submodule:**
+
+```bash
+git submodule update --init --recursive --force
+```
+
+**3. Optional Cleanup:**
+
+```bash
+git gc --prune=now --aggressive
+cd app && git gc --prune=now --aggressive
+```
