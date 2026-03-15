@@ -49,6 +49,7 @@ export function createLogger(namespace: string) {
 }
 
 // Default: enable all oli:* logs in dev, same pattern as the webapp's localStorage.debug = 'oli:*'
-if (!app.isPackaged && !process.env.DEBUG) {
+// Guard: app is undefined in preload context (main-process only module)
+if (!app?.isPackaged && !process.env.DEBUG) {
     debug.enable('oli:*');
 }

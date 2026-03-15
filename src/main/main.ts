@@ -13,7 +13,7 @@
 // Suppress security warnings in development (we intentionally disable webSecurity for CORS bypass)
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 
-import { app, BrowserWindow, session, ipcMain } from 'electron';
+import { app, BrowserWindow, session, ipcMain, shell } from 'electron';
 import path from 'path';
 import { readFileSync } from 'fs';
 import { runTracerouteStreaming, extractHostnameFromUrl } from './TracerouteProvider.js';
@@ -102,6 +102,15 @@ function createWindow(): void {
     // Log navigation errors
     mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
         electronLog.error('Failed to load:', errorCode, errorDescription);
+    });
+
+    // Open external http(s) links in the system browser
+    // (e.g. target="_blank" links like Sonic Rocket footer & CDN Calculator toolbox)
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+            shell.openExternal(url);
+        }
+        return { action: 'deny' };
     });
 }
 
