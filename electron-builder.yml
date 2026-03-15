@@ -1,5 +1,11 @@
 appId: be.sonicrocket.oli-cdn-demo
 productName: oli CDN Demo
+
+publish:
+  provider: github
+  owner: markminnoye
+  repo: oli-electron
+  releaseType: draft
 copyright: Copyright © 2026 Sonic Rocket
 
 directories:
@@ -19,6 +25,7 @@ files:
 mac:
   category: public.app-category.utilities
   icon: build/oli-electron.icns
+  identity: null
   # Entitlements for location services
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist

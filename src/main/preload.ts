@@ -139,7 +139,66 @@ const electronAPI = {
      */
     resetNetworkCache: () => {
         ipcRenderer.send('network:reset-cache');
-    }
+    },
+
+    // ── Auto-updater ──────────────────────────────────────────────────────────
+
+    /**
+     * Subscribe to update check started event
+     * @returns Cleanup function to unsubscribe
+     */
+    onUpdateChecking: (callback: () => void) => {
+        const handler = () => callback();
+        ipcRenderer.on('update:checking', handler);
+        return () => ipcRenderer.removeListener('update:checking', handler);
+    },
+
+    /**
+     * Subscribe to update available event (download starts automatically)
+     * @returns Cleanup function to unsubscribe
+     */
+    onUpdateAvailable: (callback: (info: { version: string; releaseNotes: string | null }) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+        ipcRenderer.on('update:available', handler);
+        return () => ipcRenderer.removeListener('update:available', handler);
+    },
+
+    /**
+     * Subscribe to download progress updates
+     * @returns Cleanup function to unsubscribe
+     */
+    onUpdateProgress: (callback: (progress: { percent: number; transferred: number; total: number; bytesPerSecond: number }) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+        ipcRenderer.on('update:progress', handler);
+        return () => ipcRenderer.removeListener('update:progress', handler);
+    },
+
+    /**
+     * Subscribe to update downloaded event (ready to install)
+     * @returns Cleanup function to unsubscribe
+     */
+    onUpdateDownloaded: (callback: (info: { version: string }) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+        ipcRenderer.on('update:downloaded', handler);
+        return () => ipcRenderer.removeListener('update:downloaded', handler);
+    },
+
+    /**
+     * Subscribe to updater error events
+     * @returns Cleanup function to unsubscribe
+     */
+    onUpdateError: (callback: (error: { message: string }) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+        ipcRenderer.on('update:error', handler);
+        return () => ipcRenderer.removeListener('update:error', handler);
+    },
+
+    /**
+     * Trigger installation of a downloaded update (quits and relaunches)
+     */
+    installUpdate: () => {
+        ipcRenderer.send('update:install');
+    },
 };
 
 // Expose the API to the renderer

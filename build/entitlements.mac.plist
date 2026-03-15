@@ -13,5 +13,9 @@
     <!-- Allow the app to be debugged (for development) -->
     <key>com.apple.security.get-task-allow</key>
     <true/>
+
+    <!-- Allow loading frameworks with different Team IDs (required for ad-hoc signed Electron apps on macOS 26+) -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
 </dict>
 </plist>

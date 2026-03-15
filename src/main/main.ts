@@ -18,6 +18,7 @@ import path from 'path';
 import { readFileSync } from 'fs';
 import { runTracerouteStreaming, extractHostnameFromUrl } from './TracerouteProvider.js';
 import { createLogger } from './logger.js';
+import { setupAutoUpdater, installUpdate } from './AutoUpdater.js';
 
 const electronLog = createLogger('Electron');
 const networkLog  = createLogger('Network');
@@ -380,6 +381,9 @@ function setupIpcHandlers(): void {
         return null;
     });
 
+    // Trigger update installation when renderer user clicks "Restart & Install"
+    ipcMain.on('update:install', () => installUpdate());
+
     electronLog.info('IPC handlers registered');
 }
 
@@ -389,6 +393,7 @@ app.whenReady().then(() => {
     setupNetworkMonitoring();
     setupIpcHandlers();
     createWindow();
+    setupAutoUpdater(() => mainWindow);
 
     // macOS: re-create window when dock icon is clicked
     app.on('activate', () => {
