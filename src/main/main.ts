@@ -48,8 +48,8 @@ let mainWindow: BrowserWindow | null = null;
  */
 function createWindow(): void {
     mainWindow = new BrowserWindow({
-        width: 1920,
-        height: 1080,
+        width: 1800,
+        height: 1200,
         minWidth: 1280,
         minHeight: 720,
         title: `o|i CDN Demo ${appVersion ? `(version ${appVersion})` : ''}`,
