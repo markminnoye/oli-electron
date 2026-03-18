@@ -1,8 +1,8 @@
-# o|i CDN Demo - Desktop App
+# o|i Lab - Desktop App
 
 A standalone desktop application for visualizing video streaming delivery paths and CDN performance.
 
-![o|i CDN Demo](assets/oli_floppy.png)
+![o|i Lab](assets/oli_floppy.png)
 
 ## ⬇️ Download
 
@@ -12,12 +12,12 @@ A standalone desktop application for visualizing video streaming delivery paths 
 
 ### Resolving the "App is damaged" Error on macOS
 
-Because this demo app is not signed with an Apple Developer certificate, macOS Gatekeeper may assign a quarantine attribute to the downloaded file. This results in an error message stating: **"oli CDN Demo is damaged and can't be opened. You should move it to the Trash."**
+Because this app is not signed with an Apple Developer certificate, macOS Gatekeeper may assign a quarantine attribute to the downloaded file. This results in an error message stating: **"o|i Lab is damaged and can't be opened. You should move it to the Trash."**
 
-To bypass this security feature and allow the app to run, open an **Terminal** window and execute the following command after moving the app to your Applications folder:
+To bypass this security feature and allow the app to run, open a **Terminal** window and execute the following command after moving the app to your Applications folder:
 
 ```bash
-xattr -cr "/Applications/oli CDN Demo.app"
+xattr -cr "/Applications/o|i Lab.app"
 ```
 
 _This command removes the `com.apple.quarantine` extended attribute, signaling to macOS that you trust the application._
