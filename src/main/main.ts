@@ -52,7 +52,7 @@ function createWindow(): void {
         height: 1200,
         minWidth: 1280,
         minHeight: 720,
-        title: `o|i CDN Demo ${appVersion ? `(version ${appVersion})` : ''}`,
+        title: `o|i Lab ${appVersion ? `(version ${appVersion})` : ''}`,
         webPreferences: {
             // Disable web security to bypass CORS restrictions
             // This is the main reason we're using Electron!

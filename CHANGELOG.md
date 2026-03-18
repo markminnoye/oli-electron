@@ -24,10 +24,15 @@ All notable changes to the oli-electron shell are documented here.
 
 ---
 
-## [0.3.3] — 2025-01-xx
+## [0.3.3] — 2026-03-18
 
 ### Added
 - External `http(s)` links now open in the system browser (`shell.openExternal`) instead of a new Electron window — applies to target="_blank" links such as the Sonic Rocket footer and CDN Calculator toolbox
+
+### Changed
+- **Product renamed** from "oli CDN Demo" to **"o|i Lab"** — updated `productName` in `electron-builder.yml`, window title in `main.ts`, `package.json` description, README, and release notes
+- Default window size adjusted to 1800×1200 (was 1920×1080) for better fit on standard displays
+- App submodule updated to v0.13.2 — delivery path RTT fix, glass-panel opacity restored to 0.92 for better legibility
 
 ---
 
