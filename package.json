@@ -1,7 +1,7 @@
 {
   "name": "oli-electron",
   "version": "0.3.3",
-  "description": "Electron desktop app for o|i CDN Demo - bypasses CORS and enables native network monitoring",
+  "description": "Electron desktop app for o|i Lab - bypasses CORS and enables native network monitoring",
   "main": "dist/main/main.js",
   "scripts": {
     "dev": "concurrently -k \"npm run dev:vite\" \"npm run dev:electron\"",

@@ -1,5 +1,5 @@
 appId: be.sonicrocket.oli-cdn-demo
-productName: oli CDN Demo
+productName: o|i Lab
 
 publish:
   provider: github
@@ -31,8 +31,8 @@ mac:
   entitlementsInherit: build/entitlements.mac.plist
   # Add location usage description to Info.plist
   extendInfo:
-    NSLocationWhenInUseUsageDescription: "oli CDN Demo uses your location to visualize the network path from your device to the video server."
-    NSLocationUsageDescription: "oli CDN Demo uses your location to visualize the network path from your device to the video server."
+    NSLocationWhenInUseUsageDescription: "o|i Lab uses your location to visualize the network path from your device to the video server."
+    NSLocationUsageDescription: "o|i Lab uses your location to visualize the network path from your device to the video server."
   target:
     - dmg
     - zip
