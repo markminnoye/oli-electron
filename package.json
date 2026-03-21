@@ -1,6 +1,6 @@
 {
   "name": "oli-electron",
-  "version": "0.3.3",
+  "version": "0.3.5",
   "description": "Electron desktop app for o|i Lab - bypasses CORS and enables native network monitoring",
   "main": "dist/main/main.js",
   "scripts": {
@@ -31,7 +31,7 @@
     "@types/debug": "^4.1.12",
     "@types/node": "^24.0.0",
     "concurrently": "^9.0.0",
-    "electron": "^41.0.2",
+    "electron": "^41.0.3",
     "electron-builder": "^26.8.1",
     "typescript": "^5.9.3",
     "wait-on": "^9.0.3"
