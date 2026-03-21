@@ -25,6 +25,11 @@ files:
 mac:
   category: public.app-category.utilities
   icon: build/oli-electron.icns
+  # Ad-hoc signing (no Developer ID). macOS still requires codesign -s - (the minimum),
+  # but with hardenedRuntime: false there is no W^X enforcement, so V8 JIT works freely.
+  # Users must right-click → Open to bypass Gatekeeper on first launch.
+  identity: null
+  hardenedRuntime: false
   # Entitlements for location services
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist

@@ -2,7 +2,10 @@
 
 All notable changes to the oli-electron shell are documented here.
 
-## [Unreleased]
+## [0.3.4] — 2026-03-21
+
+### Fixed
+- **macOS 26 Tahoe crash on startup** (`EXC_BREAKPOINT` / `SIGTRAP` in `ElectronMain`) — `allow-jit` is a restricted entitlement ignored by macOS for ad-hoc signed apps without a Developer ID. Real fix: disable Hardened Runtime (`hardenedRuntime: false`) so V8 JIT can allocate memory without W^X enforcement. `identity: null` makes the intent explicit (ad-hoc, no Developer ID). Right-click → Open still required on first launch.
 
 ### Added
 - Auto-updater (`src/main/AutoUpdater.ts`) — checks GitHub Releases on startup (3 s delay) and every 4 h; downloads silently in the background; user triggers restart via the renderer's `UpdateNotificationBanner`
@@ -17,10 +20,9 @@ All notable changes to the oli-electron shell are documented here.
 - TypeScript `5.6.0` → `5.9.3`
 - `@types/node` `^22` → `^24` (aligned to Electron 41's bundled Node 24 runtime)
 - App submodule updated to v0.13.1 — includes `UpdateNotificationBanner`, BakeOffView event listener accumulation fix, Vite 8 + `@vercel/*` v2 upgrades
-- macOS build temporarily set to **unsigned** (`identity: null`) while investigating Electron 41 + macOS 26 (Tahoe) V8 crash at startup; users must run `xattr -cr` and right-click → Open
 
 ### Fixed
-- macOS 26 (Tahoe): added `com.apple.security.cs.disable-library-validation` entitlement to allow Electron Framework to load under stricter Team ID validation (`electron-builder.yml` + `build/entitlements.mac.plist`)
+- macOS 26 (Tahoe): added `com.apple.security.cs.disable-library-validation` entitlement to allow Electron Framework to load under stricter Team ID validation
 
 ---
 
