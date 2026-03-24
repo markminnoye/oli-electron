@@ -13,24 +13,66 @@
 // Suppress security warnings in development (we intentionally disable webSecurity for CORS bypass)
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 
-import { app, BrowserWindow, session, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, session, ipcMain, shell, crashReporter } from 'electron';
 import path from 'path';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { runTracerouteStreaming, extractHostnameFromUrl } from './TracerouteProvider.js';
+import electronLog from 'electron-log/main';
 import { createLogger } from './logger.js';
-import { setupAutoUpdater, installUpdate } from './AutoUpdater.js';
+import { setupAutoUpdater, installUpdate, checkForUpdates, simulateUpdate } from './AutoUpdater.js';
 
-const electronLog = createLogger('Electron');
-const networkLog  = createLogger('Network');
+// Catch any unhandled errors before createLogger() is called.
+// electron-log writes to the OS log directory without explicit init.
+process.on('uncaughtException', (err) => {
+    electronLog.error('[uncaughtException]', err);
+});
+process.on('unhandledRejection', (reason) => {
+    electronLog.error('[unhandledRejection]', reason);
+});
 
-// Read version from package.json
-let appVersion = '';
-try {
-    const pkg = JSON.parse(readFileSync(path.join(__dirname, '../../package.json'), 'utf8'));
-    appVersion = pkg.version;
-} catch (e) {
-    electronLog.error('Failed to read app version:', e);
+// Delay logger initialization until app is essentially ready
+let logger: any;
+let networkLog: any;
+
+// Setup crash reporter to capture native crashes
+// crashReporter.start({
+//     submitURL: '', // Not submitting to a server, just capturing local dumps
+//     uploadToServer: false,
+// });
+
+/**
+ * Robustly find the package.json file across dev and production environments.
+ * 
+ * Electron apps can be started from different paths (e.g., via 'electron-builder', 
+ * 'npm run dev', or a standalone DMG/App bundle). This function searches 
+ * common locations for package.json to resolve the app version without throwing 
+ * ENOENT errors that could crash the splash screen.
+ * 
+ * @returns An object containing the app version string
+ */
+function findPackageJson(): { version: string } {
+    const searchPaths = [
+        path.join(app.getAppPath(), 'package.json'),
+        path.join(process.cwd(), 'package.json'),
+        path.join(__dirname, '..', '..', 'package.json'),
+        path.join(__dirname, '..', 'package.json'),
+    ];
+
+    for (const p of searchPaths) {
+        try {
+            if (existsSync(p)) {
+                return JSON.parse(readFileSync(p, 'utf8'));
+            }
+        } catch (e) {
+            // Continue searching
+        }
+    }
+
+    // logger.warn('Could not find package.json via standard search paths. Using fallback version.');
+    return { version: '0.0.0-unknown' };
 }
+// App version will be resolved in app.whenReady
+let appVersion = '';
 
 // __dirname is available in CommonJS (our tsconfig uses module: CommonJS)
 
@@ -52,7 +94,7 @@ function createWindow(): void {
         height: 1200,
         minWidth: 1280,
         minHeight: 720,
-        title: `o|i Lab ${appVersion ? `(version ${appVersion})` : ''}`,
+        title: `oi-Lab ${appVersion ? `(version ${appVersion})` : ''}`,
         webPreferences: {
             // Disable web security to bypass CORS restrictions
             // This is the main reason we're using Electron!
@@ -73,7 +115,7 @@ function createWindow(): void {
     // Load the webapp
     if (isDev) {
         // Development: load from Vite dev server
-        electronLog.info('Loading from Vite dev server:', DEV_SERVER_URL);
+        logger.info('Loading from Vite dev server:', DEV_SERVER_URL);
         mainWindow.loadURL(DEV_SERVER_URL);
 
         // Open DevTools in development
@@ -82,11 +124,11 @@ function createWindow(): void {
         // Clear session storage just once to fix "ignored permission" issues
         // This is a brute-force fix for the "permission blocked" error
         session.defaultSession.clearStorageData({ storages: ['localstorage', 'cookies', 'indexdb'] });
-        electronLog.info('Cleared session storage to reset permissions');
+        logger.info('Cleared session storage to reset permissions');
     } else {
         // Production: load from built files
-        const indexPath = path.join(__dirname, '../../app/app/dist/index.html');
-        electronLog.info('Loading from built files:', indexPath);
+        const indexPath = path.join(app.getAppPath(), 'app/app/dist/index.html');
+        logger.info('Loading from built files:', indexPath);
         mainWindow.loadFile(indexPath);
     }
 
@@ -97,12 +139,12 @@ function createWindow(): void {
 
     // Log when page loads
     mainWindow.webContents.on('did-finish-load', () => {
-        electronLog.info('Page loaded successfully');
+        logger.info('Page loaded successfully');
     });
 
     // Log navigation errors
     mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
-        electronLog.error('Failed to load:', errorCode, errorDescription);
+        logger.error('Failed to load:', errorCode, errorDescription);
     });
 
     // Open external http(s) links in the system browser
@@ -116,11 +158,18 @@ function createWindow(): void {
 }
 
 /**
- * Sets up HTTP header interception for network monitoring
- * This captures ALL headers (no CORS restrictions!)
- * Headers are sent to the renderer process via IPC for DeepPacketAnalyser
+ * Sets up HTTP header interception for network monitoring.
+ * 
+ * This is a core feature of the Electron wrapper. By using Electron's 
+ * session.webRequest API, we can bypass browser CORS restrictions and 
+ * capture ALL HTTP headers from video segment requests. 
+ * 
+ * Flow:
+ * 1. Intercept request start for TTFB calculation.
+ * 2. Inject custom headers (provided by renderer) into outgoing requests.
+ * 3. Intercept response headers, flatten them, and send to renderer via IPC.
+ * 4. Resolve the server IP from completed requests for topology mapping.
  */
-
 // Store custom headers to inject into requests (set by renderer via IPC)
 let customRequestHeaders: Record<string, string> = {};
 
@@ -259,7 +308,7 @@ function setupNetworkMonitoring(): void {
         }
     );
 
-    electronLog.info('Network monitoring enabled - headers will be sent to renderer');
+    logger.info('Network monitoring enabled - headers will be sent to renderer');
 }
 
 /**
@@ -269,8 +318,15 @@ function setupNetworkMonitoring(): void {
 const detectedIps = new Set<string>();
 
 /**
- * Check if a URL is a video-related request (manifest or segment)
- * Excludes localhost requests to avoid metrics noise from dev server
+ * Determines if a request should be monitored based on its URL and type.
+ * 
+ * Filters out localhost noise (Vite/dev server) and focuses on HLS/DASH 
+ * patterns (.m3u8, .mpd, .ts, etc.). This ensures the DeepPacketAnalyser 
+ * only receives relevant video traffic.
+ * 
+ * @param url Request URL
+ * @param resourceType Electron resource type (e.g., 'xhr', 'fetch')
+ * @returns true if the request is video-related
  */
 function isVideoRequest(url: string, resourceType?: string): boolean {
     // Exclude localhost/127.0.0.1 requests (dev server, Vite, etc.)
@@ -309,18 +365,22 @@ function isVideoRequest(url: string, resourceType?: string): boolean {
 }
 
 /**
- * Sets up IPC handlers for renderer requests
+ * Registers all Inter-Process Communication (IPC) handlers.
+ * 
+ * These handlers allow the renderer (React app) to communicate with the 
+ * Node.js main process for native operations like traceroute, header 
+ * injection, and update management.
  */
 function setupIpcHandlers(): void {
     // Handle traceroute requests - now uses streaming for real-time hop updates
     ipcMain.on('run-traceroute', (event, host: string) => {
-        electronLog.log(`Traceroute requested for: ${host}`);
+        logger.info(`Traceroute requested for: ${host}`);
 
         // Extract hostname if URL was passed
         const target = host.includes('://') ? extractHostnameFromUrl(host) : host;
 
         if (!target) {
-            electronLog.error('Invalid traceroute target:', host);
+            logger.error('Invalid traceroute target:', host);
             return;
         }
 
@@ -348,19 +408,19 @@ function setupIpcHandlers(): void {
     // This allows the renderer to specify headers to inject into video requests
     ipcMain.on('set-custom-headers', (event, headers: Record<string, string>) => {
         customRequestHeaders = headers || {};
-        electronLog.info('Custom headers updated:', Object.keys(customRequestHeaders));
+        logger.info('Custom headers updated:', Object.keys(customRequestHeaders));
     });
 
     // Handle clear custom headers
     ipcMain.on('clear-custom-headers', () => {
         customRequestHeaders = {};
-        electronLog.info('Custom headers cleared');
+        logger.info('Custom headers cleared');
     });
 
     // Handle network cache reset
     ipcMain.on('network:reset-cache', () => {
         detectedIps.clear();
-        electronLog.info('Network IP cache cleared');
+        logger.info('Network IP cache cleared');
     });
 
     // Return public IP via ipify
@@ -370,7 +430,7 @@ function setupIpcHandlers(): void {
             const data = await response.json() as { ip: string };
             return data.ip;
         } catch (error) {
-            electronLog.error('Failed to get public IP:', error);
+            logger.error('Failed to get public IP:', error);
             return null;
         }
     });
@@ -382,18 +442,63 @@ function setupIpcHandlers(): void {
     });
 
     // Trigger update installation when renderer user clicks "Restart & Install"
-    ipcMain.on('update:install', () => installUpdate());
+    ipcMain.on('update:check', () => {
+        checkForUpdates(true);
+    });
 
-    electronLog.info('IPC handlers registered');
+    ipcMain.on('update:simulate', () => {
+        simulateUpdate();
+    });
+
+    ipcMain.on('update:install', () => {
+        installUpdate();
+    });
+
+    logger.info('IPC handlers registered');
 }
 
 // App lifecycle events
 app.whenReady().then(() => {
+    // Initialize logger and crash reporter after app is ready
+    logger = createLogger('Electron');
+    networkLog = createLogger('Network');
+
+    // crashReporter.start({
+    //     submitURL: '', // Not submitting to a server, just capturing local dumps
+    //     uploadToServer: false,
+    // });
+
+    logger.info('App starting up...');
+
+    // Read version from package.json (now that logger is available)
+    try {
+        const packageJson = findPackageJson();
+        appVersion = packageJson.version;
+        logger.info(`oi-Lab starting (version: ${appVersion})...`);
+    } catch (e) {
+        logger.error('Failed to read app version:', e);
+    }
+
+    logger.info('Checkpoint: before setupPermissions');
     setupPermissions();
+    logger.info('Checkpoint: after setupPermissions');
+
+    logger.info('Checkpoint: before setupNetworkMonitoring');
     setupNetworkMonitoring();
+    logger.info('Checkpoint: after setupNetworkMonitoring');
+
+    logger.info('Checkpoint: before setupIpcHandlers');
     setupIpcHandlers();
+    logger.info('Checkpoint: after setupIpcHandlers');
+
+    logger.info('Checkpoint: before createWindow');
     createWindow();
+    logger.info('Checkpoint: after createWindow');
+
+    // Setup auto-updater (no-op in dev)
+    logger.info('Checkpoint: before setupAutoUpdater');
     setupAutoUpdater(() => mainWindow);
+    logger.info('Checkpoint: after setupAutoUpdater');
 
     // macOS: re-create window when dock icon is clicked
     app.on('activate', () => {
@@ -404,8 +509,11 @@ app.whenReady().then(() => {
 });
 
 /**
- * Setup permission handlers for web APIs
- * This enables HTML5 Geolocation API (navigator.geolocation) in the renderer process
+ * Configures application-level permission handlers.
+ * 
+ * This centrally manages which web APIs the renderer is allowed to access.
+ * Crucially, this enables the navigator.geolocation API which is used by 
+ * the app's topology services.
  */
 function setupPermissions(): void {
     // Handle permission requests from the renderer process
@@ -416,10 +524,10 @@ function setupPermissions(): void {
         ];
 
         if (allowedPermissions.includes(permission)) {
-            electronLog.log(`Granting permission: ${permission}`);
+            logger.info(`Granting permission: ${permission}`);
             callback(true);
         } else {
-            electronLog.log(`Denying permission: ${permission}`);
+            logger.info(`Denying permission: ${permission}`);
             callback(false);
         }
     });
@@ -430,7 +538,7 @@ function setupPermissions(): void {
         return allowedPermissions.includes(permission);
     });
 
-    electronLog.info('Permission handlers configured (geolocation enabled)');
+    logger.info('Permission handlers configured (geolocation enabled)');
 }
 
 // Quit when all windows are closed (except on macOS)
