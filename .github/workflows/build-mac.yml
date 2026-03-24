@@ -3,7 +3,6 @@ name: Build macOS
 on:
   push:
     branches:
-      - buildfix
       - main
       - develop
   workflow_dispatch:
@@ -42,6 +41,7 @@ jobs:
         env:
           # No code-signing: ad-hoc only (identity: "-" in electron-builder.yml)
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          GH_TOKEN: ${{ secrets.OLI_GH_TOKEN }}
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
