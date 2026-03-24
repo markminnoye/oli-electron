@@ -1,6 +1,5 @@
 appId: be.sonicrocket.oli-cdn-demo
 productName: oi-Lab
-electronVersion: 33.4.11
 
 publish:
   provider: github
