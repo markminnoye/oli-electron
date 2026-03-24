@@ -13,11 +13,12 @@
 // Suppress security warnings in development (we intentionally disable webSecurity for CORS bypass)
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 
-import { app, BrowserWindow, session, ipcMain } from 'electron';
+import { app, BrowserWindow, session, ipcMain, shell } from 'electron';
 import path from 'path';
 import { readFileSync } from 'fs';
 import { runTracerouteStreaming, extractHostnameFromUrl } from './TracerouteProvider.js';
 import { createLogger } from './logger.js';
+import { setupAutoUpdater, installUpdate } from './AutoUpdater.js';
 
 const electronLog = createLogger('Electron');
 const networkLog  = createLogger('Network');
@@ -47,11 +48,11 @@ let mainWindow: BrowserWindow | null = null;
  */
 function createWindow(): void {
     mainWindow = new BrowserWindow({
-        width: 1920,
-        height: 1080,
+        width: 1800,
+        height: 1200,
         minWidth: 1280,
         minHeight: 720,
-        title: `o|i CDN Demo ${appVersion ? `(version ${appVersion})` : ''}`,
+        title: `o|i Lab ${appVersion ? `(version ${appVersion})` : ''}`,
         webPreferences: {
             // Disable web security to bypass CORS restrictions
             // This is the main reason we're using Electron!
@@ -102,6 +103,15 @@ function createWindow(): void {
     // Log navigation errors
     mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
         electronLog.error('Failed to load:', errorCode, errorDescription);
+    });
+
+    // Open external http(s) links in the system browser
+    // (e.g. target="_blank" links like Sonic Rocket footer & CDN Calculator toolbox)
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+            shell.openExternal(url);
+        }
+        return { action: 'deny' };
     });
 }
 
@@ -371,6 +381,9 @@ function setupIpcHandlers(): void {
         return null;
     });
 
+    // Trigger update installation when renderer user clicks "Restart & Install"
+    ipcMain.on('update:install', () => installUpdate());
+
     electronLog.info('IPC handlers registered');
 }
 
@@ -380,6 +393,7 @@ app.whenReady().then(() => {
     setupNetworkMonitoring();
     setupIpcHandlers();
     createWindow();
+    setupAutoUpdater(() => mainWindow);
 
     // macOS: re-create window when dock icon is clicked
     app.on('activate', () => {

@@ -20,8 +20,9 @@ This file provides guidance to AI agents when working with code in this reposito
 3. [Key Technologies](#key-technologies)
 4. [Commands](#commands)
 5. [Key Rules & Constraints](#key-rules--constraints)
-6. [Workflow Rules](#workflow-rules)
-7. [Tools](#tools)
+6. [Documentation Standards](#documentation-standards)
+7. [Workflow Rules](#workflow-rules)
+8. [Tools](#tools)
 8. [Critical Implementation Details](#critical-implementation-details)
 9. [Module System](#module-system)
 10. [Environment Configuration](#environment-configuration)
@@ -190,10 +191,16 @@ GeoMap renders network path visualization
 
 ### Git Operations
 
-- **Use GitHub MCP** for all git operations instead of shell commands (when available)
-- **Default working branch is `develop`** — never commit directly to `main` unless explicitly told to
-- **After finishing a task, sync branches** if needed before moving on
 - **Always link commits to relevant issue numbers** in commit messages (e.g., `fixes #42`)
+
+## Documentation Standards
+
+To maintain codebase health and ease onboarding:
+
+- **JSDoc for all public Exports**: Every exported function, class, and interface must have a JSDoc block.
+- **Param & Return Types**: Explicitly document `@param` and `@returns` sections.
+- **Complex Logic**: Add inline comments for non-obvious implementation details.
+- **IPC Channels**: Document the purpose and payload of IPC handlers in `main.ts` and `preload.ts`.
 
 ## Workflow Rules
 

@@ -19,12 +19,12 @@ Minor maintenance release focusing on security and framework shelf updates.
 
 ### macOS "App is damaged" Error
 
-When opening the downloaded `.dmg` or `.zip`, macOS Gatekeeper may show a strict error: _"oli CDN Demo is damaged and can't be opened. You should move it to the Trash."_
+When opening the downloaded `.dmg` or `.zip`, macOS Gatekeeper may show a strict error: _"o|i Lab is damaged and can't be opened. You should move it to the Trash."_
 This happens because the application is not codesigned or notarized by Apple.
 
 **The Fix:**
 Drag the app to your `Applications` folder, open your **Terminal**, and run the following command to remove the quarantine flag:
 
 ```bash
-xattr -cr "/Applications/oli CDN Demo.app"
+xattr -cr "/Applications/o|i Lab.app"
 ```

@@ -1,7 +1,7 @@
 {
   "name": "oli-electron",
-  "version": "0.3.2",
-  "description": "Electron desktop app for o|i CDN Demo - bypasses CORS and enables native network monitoring",
+  "version": "0.3.4",
+  "description": "Electron desktop app for o|i Lab - bypasses CORS and enables native network monitoring",
   "main": "dist/main/main.js",
   "scripts": {
     "dev": "concurrently -k \"npm run dev:vite\" \"npm run dev:electron\"",
@@ -24,17 +24,20 @@
     "network-monitoring"
   ],
   "author": "Mark Minnoye",
+  "company": "Sonic Rocket",
+  "url": "https://www.sonicrocket.be",
   "license": "MIT",
   "devDependencies": {
     "@types/debug": "^4.1.12",
-    "@types/node": "^22.0.0",
+    "@types/node": "^24.0.0",
     "concurrently": "^9.0.0",
-    "electron": "^33.4.11",
-    "electron-builder": "^25.0.0",
-    "typescript": "^5.6.0",
+    "electron": "^41.0.3",
+    "electron-builder": "^26.8.1",
+    "typescript": "^5.9.3",
     "wait-on": "^9.0.3"
   },
   "dependencies": {
-    "debug": "^4.4.3"
+    "debug": "^4.4.3",
+    "electron-updater": "^6.8.3"
   }
 }
