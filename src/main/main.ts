@@ -13,7 +13,7 @@
 // Suppress security warnings in development (we intentionally disable webSecurity for CORS bypass)
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 
-import { app, BrowserWindow, session, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, session, ipcMain, shell, Menu, dialog } from 'electron';
 import path from 'path';
 import { readFileSync, existsSync } from 'fs';
 import { runTracerouteStreaming, extractHostnameFromUrl } from './TracerouteProvider.js';
@@ -450,6 +450,88 @@ function setupIpcHandlers(): void {
     logger.info('IPC handlers registered');
 }
 
+/**
+ * Builds the native application menu.
+ *
+ * Preserves macOS default menus (Edit, View, Window) so that standard
+ * keyboard shortcuts (Cmd+C, Cmd+Z, etc.) continue to work. Adds a
+ * Help menu with an About item that shows version details.
+ */
+function setupMenu(): void {
+    const template: Electron.MenuItemConstructorOptions[] = [
+        // macOS: first menu item is the app name menu
+        ...(process.platform === 'darwin' ? [{
+            label: app.name,
+            submenu: [
+                { role: 'hide' as const },
+                { role: 'hideOthers' as const },
+                { role: 'unhide' as const },
+                { type: 'separator' as const },
+                { role: 'quit' as const },
+            ]
+        }] : []),
+        {
+            label: 'Edit',
+            submenu: [
+                { role: 'undo' as const },
+                { role: 'redo' as const },
+                { type: 'separator' as const },
+                { role: 'cut' as const },
+                { role: 'copy' as const },
+                { role: 'paste' as const },
+                { role: 'selectAll' as const },
+            ]
+        },
+        {
+            label: 'View',
+            submenu: [
+                { role: 'reload' as const },
+                { role: 'toggleDevTools' as const },
+                { type: 'separator' as const },
+                { role: 'resetZoom' as const },
+                { role: 'zoomIn' as const },
+                { role: 'zoomOut' as const },
+                { type: 'separator' as const },
+                { role: 'togglefullscreen' as const },
+            ]
+        },
+        {
+            label: 'Window',
+            submenu: [
+                { role: 'minimize' as const },
+                { role: 'zoom' as const },
+                ...(process.platform === 'darwin' ? [{ role: 'front' as const }] : []),
+            ]
+        },
+        {
+            label: 'Help',
+            submenu: [
+                {
+                    label: 'About oi-Lab',
+                    click: () => {
+                        dialog.showMessageBox({
+                            type: 'info',
+                            title: 'About oi-Lab',
+                            message: 'oi-Lab',
+                            detail: [
+                                `Version: ${appVersion}`,
+                                `Electron: ${process.versions.electron}`,
+                                `Chromium: ${process.versions.chrome}`,
+                                `Node.js: ${process.versions.node}`,
+                                '',
+                                'Copyright © 2026 Sonic Rocket',
+                            ].join('\n'),
+                            buttons: ['OK'],
+                        });
+                    }
+                }
+            ]
+        }
+    ];
+
+    Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 // App lifecycle events
 app.whenReady().then(() => {
     // Initialize logger after app is ready
@@ -465,6 +547,8 @@ app.whenReady().then(() => {
     } catch (e) {
         logger.error('Failed to read app version:', e);
     }
+
+    setupMenu();
 
     logger.info('Checkpoint: before setupPermissions');
     setupPermissions();
