@@ -13,7 +13,7 @@
 // Suppress security warnings in development (we intentionally disable webSecurity for CORS bypass)
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 
-import { app, BrowserWindow, session, ipcMain, shell, crashReporter } from 'electron';
+import { app, BrowserWindow, session, ipcMain, shell } from 'electron';
 import path from 'path';
 import { readFileSync, existsSync } from 'fs';
 import { runTracerouteStreaming, extractHostnameFromUrl } from './TracerouteProvider.js';
@@ -31,14 +31,7 @@ process.on('unhandledRejection', (reason) => {
 });
 
 // Delay logger initialization until app is essentially ready
-let logger: any;
-let networkLog: any;
-
-// Setup crash reporter to capture native crashes
-// crashReporter.start({
-//     submitURL: '', // Not submitting to a server, just capturing local dumps
-//     uploadToServer: false,
-// });
+let logger: ReturnType<typeof createLogger>;
 
 /**
  * Robustly find the package.json file across dev and production environments.
@@ -207,7 +200,7 @@ function setupNetworkMonitoring(): void {
                         requestHeaders[key] = value;
                     }
                     if (details.url.includes('.m3u8')) {
-                        networkLog.log(`Injected headers for ${details.url.substring(0, 60)}...`);
+                        logger.log(`Injected headers for ${details.url.substring(0, 60)}...`);
                     }
                 }
             }
@@ -252,7 +245,7 @@ function setupNetworkMonitoring(): void {
 
                 // Debug log
                 const cdn = flatHeaders['x-cdn'] || flatHeaders['server'] || 'unknown';
-                networkLog.log(`${details.method} ${details.url.substring(0, 80)}... (CDN: ${cdn}, TTFB: ${ttfb}ms)`);
+                logger.log(`${details.method} ${details.url.substring(0, 80)}... (CDN: ${cdn}, TTFB: ${ttfb}ms)`);
 
                 // Prevent local caching of video assets by overriding response headers
                 if (details.responseHeaders) {
@@ -302,7 +295,7 @@ function setupNetworkMonitoring(): void {
                 // Debug log for manifests
                 const isManifest = details.url.includes('.m3u8') || details.url.includes('.mpd');
                 if (isManifest) {
-                    networkLog.log(`Server IP: ${ip} for ${hostname}`);
+                    logger.log(`Server IP: ${ip} for ${hostname}`);
                 }
             }
         }
@@ -459,14 +452,8 @@ function setupIpcHandlers(): void {
 
 // App lifecycle events
 app.whenReady().then(() => {
-    // Initialize logger and crash reporter after app is ready
+    // Initialize logger after app is ready
     logger = createLogger('Electron');
-    networkLog = createLogger('Network');
-
-    // crashReporter.start({
-    //     submitURL: '', // Not submitting to a server, just capturing local dumps
-    //     uploadToServer: false,
-    // });
 
     logger.info('App starting up...');
 
