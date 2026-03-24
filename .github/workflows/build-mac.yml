@@ -4,12 +4,14 @@ on:
   push:
     branches:
       - main
-      - develop
+      # - develop
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: macos-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
     steps:
       - name: Checkout with submodules
@@ -37,18 +39,8 @@ jobs:
         run: npm run compile
 
       - name: Package with electron-builder
-        run: npx electron-builder --mac
+        run: npx electron-builder --mac --publish always
         env:
           # No code-signing: ad-hoc only (identity: "-" in electron-builder.yml)
           CSC_IDENTITY_AUTO_DISCOVERY: false
           GH_TOKEN: ${{ secrets.OLI_GH_TOKEN }}
-
-      - name: Upload DMG artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: oi-Lab-mac-${{ github.sha }}
-          path: |
-            release/*.dmg
-            release/*.zip
-          if-no-files-found: warn
-          retention-days: 7
