@@ -2,8 +2,6 @@
  * Auto-updater module for Electron
  *
  * Uses electron-updater to check for, download, and install updates from GitHub Releases.
- * All update logic is no-op in development (app.isPackaged === false).
- *
  * IPC events pushed to renderer:
  *   update:checking   — started a check
  *   update:available  — update found, download starting automatically
@@ -24,17 +22,15 @@ const INITIAL_CHECK_DELAY_MS = 3_000;
 /** How often to check for updates — every 4 hours */
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1_000;
 
+let mainWindowGetter: () => BrowserWindow | null;
+
 /**
  * Configures electron-updater and starts the update check cycle.
- * All logic is skipped when the app is not packaged (dev mode).
  *
  * @param getMainWindow - Returns the current main BrowserWindow (or null if closed)
  */
 export function setupAutoUpdater(getMainWindow: () => BrowserWindow | null): void {
-    if (!app.isPackaged) {
-        log.info('Skipping — app is not packaged (dev mode)');
-        return;
-    }
+    mainWindowGetter = getMainWindow;
 
     // Silent background download; user decides when to restart
     autoUpdater.autoDownload = true;
@@ -88,20 +84,85 @@ export function setupAutoUpdater(getMainWindow: () => BrowserWindow | null): voi
     });
 
     // Initial check after a short delay to let the app finish loading
+    if (app.isPackaged) {
+        setTimeout(() => {
+            autoUpdater.checkForUpdates().catch((err) => {
+                log.error('checkForUpdates failed:', err.message);
+            });
+        }, INITIAL_CHECK_DELAY_MS);
+
+        // Recurring checks
+        setInterval(() => {
+            autoUpdater.checkForUpdates().catch((err) => {
+                log.error('checkForUpdates failed:', err.message);
+            });
+        }, CHECK_INTERVAL_MS);
+
+        log.info('Auto-updater configured — first check in 3s, then every 4h');
+    } else {
+        log.info('Auto-updater configured in dummy mode (dev)');
+    }
+}
+
+/**
+ * Checks for updates.
+ * @param manual Whether this check was triggered manually by the user.
+ */
+export async function checkForUpdates(manual: boolean = false): Promise<void> {
+    if (app.isPackaged || manual) {
+        log.log(`Checking for updates (manual: ${manual})...`);
+        try {
+            await autoUpdater.checkForUpdatesAndNotify();
+        } catch (err: any) {
+            log.error('checkForUpdates failed:', err.message);
+        }
+    } else {
+        log.log('Skipping update check in development mode');
+    }
+}
+
+/**
+ * Simulates an update flow for development/demonstration.
+ */
+export function simulateUpdate(): void {
+    log.log('Simulating update flow...');
+    const win = mainWindowGetter && mainWindowGetter();
+    if (!win || win.isDestroyed()) return;
+
+    const send = (channel: string, payload?: unknown) => win.webContents.send(channel, payload);
+
+    // 1. Notify checking
+    send('update:checking');
+
     setTimeout(() => {
-        autoUpdater.checkForUpdates().catch((err) => {
-            log.error('checkForUpdates failed:', err.message);
+        // 2. Notify update available
+        send('update:available', {
+            version: '2.0.0-mock',
+            releaseDate: new Date().toISOString()
         });
-    }, INITIAL_CHECK_DELAY_MS);
 
-    // Recurring checks
-    setInterval(() => {
-        autoUpdater.checkForUpdates().catch((err) => {
-            log.error('checkForUpdates failed:', err.message);
-        });
-    }, CHECK_INTERVAL_MS);
-
-    log.info('Auto-updater configured — first check in 3s, then every 4h');
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress >= 100) {
+                progress = 100;
+                clearInterval(interval);
+                
+                // 3. Notify download complete
+                send('update:downloaded', {
+                    version: '2.0.0-mock'
+                });
+            } else {
+                // 4. Notify progress
+                send('update:progress', {
+                    percent: progress,
+                    bytesPerSecond: 1024 * 512, // 512 KB/s
+                    total: 100 * 1024 * 1024,
+                    transferred: (progress / 100) * 100 * 1024 * 1024
+                });
+            }
+        }, 500);
+    }, 1500);
 }
 
 /**
@@ -109,5 +170,6 @@ export function setupAutoUpdater(getMainWindow: () => BrowserWindow | null): voi
  * Called via IPC from the renderer when the user clicks "Restart & Install".
  */
 export function installUpdate(): void {
+    log.info('Installing update and restarting...');
     setImmediate(() => autoUpdater.quitAndInstall());
 }
