@@ -1,5 +1,6 @@
 appId: be.sonicrocket.oli-cdn-demo
-productName: o|i Lab
+productName: oi-Lab
+electronVersion: 33.4.11
 
 publish:
   provider: github
@@ -28,15 +29,15 @@ mac:
   # Ad-hoc signing (no Developer ID). macOS still requires codesign -s - (the minimum),
   # but with hardenedRuntime: false there is no W^X enforcement, so V8 JIT works freely.
   # Users must right-click → Open to bypass Gatekeeper on first launch.
-  identity: null
+  identity: "-"
   hardenedRuntime: false
   # Entitlements for location services
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   # Add location usage description to Info.plist
   extendInfo:
-    NSLocationWhenInUseUsageDescription: "o|i Lab uses your location to visualize the network path from your device to the video server."
-    NSLocationUsageDescription: "o|i Lab uses your location to visualize the network path from your device to the video server."
+    NSLocationWhenInUseUsageDescription: "oi-Lab uses your location to visualize the network path from your device to the video server."
+    NSLocationUsageDescription: "oi-Lab uses your location to visualize the network path from your device to the video server."
   target:
     - dmg
     - zip
