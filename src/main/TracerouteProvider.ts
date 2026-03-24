@@ -148,10 +148,15 @@ function parseTracerouteOutput(output: string): TracerouteHop[] {
 }
 
 /**
- * Run traceroute to a target host
- * @param target - Hostname or IP to trace
- * @param maxHops - Maximum number of hops (default: 30)
- * @param timeout - Timeout per hop in seconds (default: 2)
+ * Executes a full traceroute to a target host and returns the complete result.
+ * 
+ * This is a batch operation that waits for the native traceroute command to finish.
+ * For real-time updates, use runTracerouteStreaming instead.
+ * 
+ * @param target - Hostname or IP to trace.
+ * @param maxHops - Maximum number of hops (default: 30).
+ * @param timeout - Timeout per hop in seconds (default: 2).
+ * @returns Promise resolving to a structured TracerouteResult.
  */
 export async function runTraceroute(
     target: string,
@@ -326,13 +331,16 @@ function parseTracerouteLine(line: string): TracerouteHop | null {
 }
 
 /**
- * Run traceroute with streaming output - emits each hop as it's discovered
+ * Executes a traceroute with streaming output, emitting each hop as it is discovered.
  * 
- * @param target - Hostname or IP to trace
- * @param onHop - Callback for each discovered hop
- * @param onComplete - Callback when traceroute completes
- * @param maxHops - Maximum number of hops (default: 20)
- * @param timeout - Timeout per hop in seconds (default: 2)
+ * This is the preferred method for UI updates as it provides real-time progress.
+ * It uses child_process.spawn to capture stdout/stderr as it is generated.
+ * 
+ * @param target - Hostname or IP to trace.
+ * @param onHop - Callback function called for each discovered hop.
+ * @param onComplete - Callback function called when the traceroute completes.
+ * @param maxHops - Maximum number of hops (default: 20).
+ * @param timeout - Timeout per hop in seconds (default: 2).
  */
 export function runTracerouteStreaming(
     target: string,

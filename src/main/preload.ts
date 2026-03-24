@@ -13,11 +13,13 @@ import { createLogger } from './logger.js';
 const preloadLog = createLogger('Preload');
 
 /**
- * API exposed to the renderer process
+ * Securely exposed API via Electron Context Bridge.
+ * Accessible in the renderer process via `window.electronAPI`.
  */
 const electronAPI = {
     /**
-     * Check if we're running in Electron
+     * Constant flag indicating the app is running within an Electron environment.
+     * Used by the shared webapp to enable desktop-specific features.
      */
     isElectron: true,
 
@@ -135,7 +137,8 @@ const electronAPI = {
     },
 
     /**
-     * Clear the main process IP detection cache
+     * Sends an IPC message to the main process to clear its internal hostname-to-IP detection cache.
+     * Useful when switching streams or encountering stale network paths.
      */
     resetNetworkCache: () => {
         ipcRenderer.send('network:reset-cache');
@@ -143,52 +146,38 @@ const electronAPI = {
 
     // ── Auto-updater ──────────────────────────────────────────────────────────
 
-    /**
-     * Subscribe to update check started event
-     * @returns Cleanup function to unsubscribe
-     */
     onUpdateChecking: (callback: () => void) => {
         const handler = () => callback();
         ipcRenderer.on('update:checking', handler);
         return () => ipcRenderer.removeListener('update:checking', handler);
     },
 
-    /**
-     * Subscribe to update available event (download starts automatically)
-     * @returns Cleanup function to unsubscribe
-     */
-    onUpdateAvailable: (callback: (info: { version: string; releaseNotes: string | null }) => void) => {
-        const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+    onUpdateAvailable: (callback: (info: { version: string }) => void) => {
+        const handler = (_event: any, info: { version: string }) => callback(info);
         ipcRenderer.on('update:available', handler);
         return () => ipcRenderer.removeListener('update:available', handler);
     },
 
-    /**
-     * Subscribe to download progress updates
-     * @returns Cleanup function to unsubscribe
-     */
-    onUpdateProgress: (callback: (progress: { percent: number; transferred: number; total: number; bytesPerSecond: number }) => void) => {
-        const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+    onUpdateNotAvailable: (callback: () => void) => {
+        const handler = () => callback();
+        ipcRenderer.on('update:not-available', handler);
+        return () => ipcRenderer.removeListener('update:not-available', handler);
+    },
+
+    onUpdateProgress: (callback: (progress: { percent: number; bytesPerSecond: number }) => void) => {
+        const handler = (_event: any, progress: { percent: number; bytesPerSecond: number }) => callback(progress);
         ipcRenderer.on('update:progress', handler);
         return () => ipcRenderer.removeListener('update:progress', handler);
     },
 
-    /**
-     * Subscribe to update downloaded event (ready to install)
-     * @returns Cleanup function to unsubscribe
-     */
     onUpdateDownloaded: (callback: (info: { version: string }) => void) => {
-        const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+        const handler = (_event: any, info: { version: string }) => callback(info);
         ipcRenderer.on('update:downloaded', handler);
         return () => ipcRenderer.removeListener('update:downloaded', handler);
     },
 
-    /**
-     * Subscribe to updater error events
-     * @returns Cleanup function to unsubscribe
-     */
     onUpdateError: (callback: (error: { message: string }) => void) => {
-        const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+        const handler = (_event: any, error: { message: string }) => callback(error);
         ipcRenderer.on('update:error', handler);
         return () => ipcRenderer.removeListener('update:error', handler);
     },
@@ -196,6 +185,8 @@ const electronAPI = {
     /**
      * Trigger installation of a downloaded update (quits and relaunches)
      */
+    checkForUpdates: () => ipcRenderer.send('update:check'),
+    simulateUpdate: () => ipcRenderer.send('update:simulate'),
     installUpdate: () => {
         ipcRenderer.send('update:install');
     },
