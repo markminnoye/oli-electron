@@ -13,10 +13,10 @@
 // Suppress security warnings in development (we intentionally disable webSecurity for CORS bypass)
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 
-import { app, BrowserWindow, session, ipcMain, shell, Menu, dialog } from 'electron';
+import { app, BrowserWindow, session, ipcMain, MessageChannelMain, utilityProcess, shell, Menu, dialog } from 'electron';
 import path from 'path';
 import { readFileSync, existsSync } from 'fs';
-import { runTracerouteStreaming, extractHostnameFromUrl } from './TracerouteProvider.js';
+import { extractHostnameFromUrl } from './TracerouteProvider.js';
 import electronLog from 'electron-log/main';
 import { createLogger } from './logger.js';
 import { setupAutoUpdater, installUpdate, checkForUpdates, simulateUpdate } from './AutoUpdater.js';
@@ -364,37 +364,38 @@ function isVideoRequest(url: string, resourceType?: string): boolean {
  * Node.js main process for native operations like traceroute, header 
  * injection, and update management.
  */
+/**
+ * Returns true when the IPC sender is the app's own renderer.
+ * Rejects requests from any injected iframe or third-party content.
+ */
+function isFromApp(event: Electron.IpcMainInvokeEvent): boolean {
+    const url = event.senderFrame?.url ?? '';
+    return url.startsWith('file://') || url.startsWith('http://localhost:');
+}
+
 function setupIpcHandlers(): void {
-    // Handle traceroute requests - now uses streaming for real-time hop updates
-    ipcMain.on('run-traceroute', (event, host: string) => {
+    // Traceroute: fork a utility process, create a MessageChannelMain so hops
+    // stream directly from the worker to the renderer preload — no main relay.
+    ipcMain.on('run-traceroute', (_event, host: string) => {
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+
         logger.info(`Traceroute requested for: ${host}`);
-
-        // Extract hostname if URL was passed
         const target = host.includes('://') ? extractHostnameFromUrl(host) : host;
+        if (!target) { logger.error('Invalid traceroute target:', host); return; }
 
-        if (!target) {
-            logger.error('Invalid traceroute target:', host);
-            return;
-        }
+        const { port1, port2 } = new MessageChannelMain();
 
-        // Use streaming traceroute for real-time hop updates
-        runTracerouteStreaming(
-            target,
-            // onHop: Send each hop as it's discovered
-            (hop) => {
-                if (mainWindow && !mainWindow.isDestroyed()) {
-                    mainWindow.webContents.send('traceroute-hop', hop);
-                }
-            },
-            // onComplete: Send final result
-            (result) => {
-                if (mainWindow && !mainWindow.isDestroyed()) {
-                    mainWindow.webContents.send('traceroute-result', result);
-                }
-            },
-            20, // maxHops
-            2   // timeout per hop
+        // port1 → renderer preload (receives hop/result messages directly)
+        mainWindow.webContents.postMessage('traceroute-port', null, [port1]);
+
+        // port2 → utility process (sends hop/result messages directly to renderer)
+        const worker = utilityProcess.fork(
+            path.join(__dirname, 'traceroute-worker.js')
         );
+        worker.postMessage({ cmd: 'traceroute', target, maxHops: 20, timeout: 2 }, [port2]);
+        worker.on('exit', (code) => {
+            logger.info(`Traceroute worker exited (code: ${code})`);
+        });
     });
 
     // Handle custom header injection requests
@@ -417,7 +418,8 @@ function setupIpcHandlers(): void {
     });
 
     // Return public IP via ipify
-    ipcMain.handle('get-public-ip', async () => {
+    ipcMain.handle('get-public-ip', async (event) => {
+        if (!isFromApp(event)) throw new Error('Unauthorized sender');
         try {
             const response = await fetch('https://api.ipify.org?format=json');
             const data = await response.json() as { ip: string };
@@ -430,7 +432,8 @@ function setupIpcHandlers(): void {
 
     // Geolocation is handled by the renderer's GeoLocationService via navigator.geolocation
     // (granted by setupPermissions). Return null to signal the renderer to use its own flow.
-    ipcMain.handle('get-geolocation', async () => {
+    ipcMain.handle('get-geolocation', async (event) => {
+        if (!isFromApp(event)) throw new Error('Unauthorized sender');
         return null;
     });
 
