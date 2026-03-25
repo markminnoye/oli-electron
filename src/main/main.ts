@@ -489,6 +489,10 @@ function setupMenu(): void {
             label: app.name,
             submenu: [
                 { role: 'about' as const },
+                {
+                    label: 'Check for Updates\u2026',
+                    click: () => checkForUpdates(true),
+                },
                 { type: 'separator' as const },
                 { role: 'hide' as const },
                 { role: 'hideOthers' as const },
