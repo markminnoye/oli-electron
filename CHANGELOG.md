@@ -5,6 +5,7 @@ All notable changes to the oli-electron shell are documented here.
 ## [Unreleased] — post-0.3.4
 
 ### Fixed
+- Improved stability when the logger initializes in restricted contexts — prevents a crash at startup caused by missing log transports in the preload layer
 - Robust `package.json` discovery via `findPackageJson()` — searches multiple paths to avoid `ENOENT` crashes across dev, packaged, and DMG environments
 - `uncaughtException` / `unhandledRejection` handlers added before logger init to capture early startup crashes
 - `simulateUpdate()` uses module-level `mainWindowGetter` so dev update simulation works without a real release
