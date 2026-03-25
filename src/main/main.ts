@@ -450,15 +450,40 @@ function setupIpcHandlers(): void {
         installUpdate();
     });
 
+    // Renderer log relay — writes renderer warn/error to electron-log file
+    ipcMain.on('log:relay', (_event, entry: { level: 'warn' | 'error'; namespace: string; args: unknown[] }) => {
+        const rendererLog = createLogger(`Renderer:${entry.namespace}`);
+        if (entry.level === 'warn') rendererLog.warn(...entry.args);
+        else rendererLog.error(...entry.args);
+    });
+
     logger.info('IPC handlers registered');
+}
+
+/**
+ * Configures the native macOS About panel with version details.
+ * Must be called after appVersion is resolved.
+ */
+function setupAboutPanel(): void {
+    app.setAboutPanelOptions({
+        applicationName: 'oi-Lab',
+        applicationVersion: appVersion,
+        copyright: 'Copyright © 2026 Sonic Rocket',
+        credits: [
+            `Electron: ${process.versions.electron}`,
+            `Chromium: ${process.versions.chrome}`,
+            `Node.js: ${process.versions.node}`,
+        ].join('\n'),
+    });
 }
 
 /**
  * Builds the native application menu.
  *
  * Preserves macOS default menus (Edit, View, Window) so that standard
- * keyboard shortcuts (Cmd+C, Cmd+Z, etc.) continue to work. Adds a
- * Help menu with an About item that shows version details.
+ * keyboard shortcuts (Cmd+C, Cmd+Z, etc.) continue to work. On macOS,
+ * "About oi-Lab" lives in the app menu (standard placement); the Help
+ * menu is kept so macOS adds its built-in search field.
  */
 function setupMenu(): void {
     const template: Electron.MenuItemConstructorOptions[] = [
@@ -466,6 +491,12 @@ function setupMenu(): void {
         ...(process.platform === 'darwin' ? [{
             label: app.name,
             submenu: [
+                { role: 'about' as const },
+                {
+                    label: 'Check for Updates\u2026',
+                    click: () => checkForUpdates(true),
+                },
+                { type: 'separator' as const },
                 { role: 'hide' as const },
                 { role: 'hideOthers' as const },
                 { role: 'unhide' as const },
@@ -507,28 +538,8 @@ function setupMenu(): void {
             ]
         },
         {
-            label: 'Help',
-            submenu: [
-                {
-                    label: 'About oi-Lab',
-                    click: () => {
-                        dialog.showMessageBox({
-                            type: 'info',
-                            title: 'About oi-Lab',
-                            message: 'oi-Lab',
-                            detail: [
-                                `Version: ${appVersion}`,
-                                `Electron: ${process.versions.electron}`,
-                                `Chromium: ${process.versions.chrome}`,
-                                `Node.js: ${process.versions.node}`,
-                                '',
-                                'Copyright © 2026 Sonic Rocket',
-                            ].join('\n'),
-                            buttons: ['OK'],
-                        });
-                    }
-                }
-            ]
+            role: 'help' as const,
+            submenu: [],
         }
     ];
 
@@ -551,6 +562,7 @@ app.whenReady().then(() => {
         logger.error('Failed to read app version:', e);
     }
 
+    setupAboutPanel();
     setupMenu();
 
     logger.info('Checkpoint: before setupPermissions');

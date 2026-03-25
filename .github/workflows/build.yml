@@ -1,0 +1,97 @@
+name: Build Desktop
+
+on:
+  push:
+    branches:
+      - main
+      # - develop
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish to GitHub Releases (always)"
+        type: boolean
+        default: false
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.OLI_GH_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install webapp dependencies
+        run: cd app/app && npm ci
+
+      - name: Build webapp (Vite)
+        run: cd app/app && npm run build
+
+      - name: Compile TypeScript (main + preload)
+        run: npm run compile
+
+      - name: Package with electron-builder
+        run: |
+          if [ "${{ github.event.inputs.publish }}" = "true" ]; then
+            npx electron-builder --mac --publish always
+          else
+            npx electron-builder --mac --publish onTag
+          fi
+        env:
+          # No code-signing: ad-hoc only (identity: "-" in electron-builder.yml)
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          GH_TOKEN: ${{ secrets.OLI_GH_TOKEN }}
+
+  build-win:
+    runs-on: windows-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.OLI_GH_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install webapp dependencies
+        run: cd app/app && npm ci
+
+      - name: Build webapp (Vite)
+        run: cd app/app && npm run build
+
+      - name: Compile TypeScript (main + preload)
+        run: npm run compile
+
+      - name: Package with electron-builder
+        shell: bash
+        run: |
+          if [ "${{ github.event.inputs.publish }}" = "true" ]; then
+            npx electron-builder --win --publish always
+          else
+            npx electron-builder --win --publish onTag
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.OLI_GH_TOKEN }}
