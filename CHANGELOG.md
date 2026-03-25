@@ -11,6 +11,7 @@ All notable changes to the oli-electron shell are documented here.
 - `simulateUpdate()` uses module-level `mainWindowGetter` so dev update simulation works without a real release
 
 ### Added
+- App warnings and errors from the player and network layers are now captured in the log file — previously these were only visible in DevTools and lost when the window closed
 - `electron-log` integration — all log output now persists to OS log files in addition to the console, aiding crash diagnosis on end-user machines
 - Checkpoint logging throughout `app.whenReady()` startup sequence for pinpointing macOS 26 crash location
 - `checkForUpdates(manual)` exported from `AutoUpdater.ts` — triggered via new `update:check` IPC event
