@@ -2,6 +2,40 @@
 
 All notable changes to the oli-electron shell are documented here.
 
+## [Unreleased] — post-0.3.4
+
+### Fixed
+- `ipChanged` coerced to a strict boolean in `ElectronBridge.handleServerIp()` — prevents potential truthy/falsy issues when comparing IP strings
+- Improved stability when the logger initializes in restricted contexts — prevents a crash at startup caused by missing log transports in the preload layer
+- Robust `package.json` discovery via `findPackageJson()` — searches multiple paths to avoid `ENOENT` crashes across dev, packaged, and DMG environments
+- `uncaughtException` / `unhandledRejection` handlers added before logger init to capture early startup crashes
+- `simulateUpdate()` uses module-level `mainWindowGetter` so dev update simulation works without a real release
+
+### Added
+- `MapPanel` migrated from `console.log` to `createLogger` — map-layer events now persist to the log file alongside all other subsystems
+- App warnings and errors from the player and network layers are now captured in the log file — previously these were only visible in DevTools and lost when the window closed
+- `electron-log` integration — all log output now persists to OS log files in addition to the console, aiding crash diagnosis on end-user machines
+- Checkpoint logging throughout `app.whenReady()` startup sequence for pinpointing macOS 26 crash location
+- `checkForUpdates(manual)` exported from `AutoUpdater.ts` — triggered via new `update:check` IPC event
+- `simulateUpdate()` — dev-mode mock of the full update flow (checking → available → progress → downloaded)
+- `update:simulate` and `update:check` IPC handlers in `setupIpcHandlers()`
+- `onUpdateNotAvailable` subscription in preload bridge
+- `checkForUpdates` and `simulateUpdate` methods on `window.electronAPI`
+- macOS build CI workflow (`.github/workflows/build-mac.yml`) — builds and publishes on push to `main`/`buildfix`
+
+### Changed
+- **About panel** replaced the custom Help › About dialog with the native macOS About panel (`app.setAboutPanelOptions` + `role: 'about'`); the Help menu is retained as an empty entry so macOS still adds its built-in search field
+- Logger refactored to use `electron-log` for file persistence; dev logs written to `logs/main.log` in project root
+- Logger init deferred to `app.whenReady()` to avoid preload context conflicts
+- Auto-updater: recurring `setInterval` check (every 4h) now correctly guarded inside `app.isPackaged` block
+- Production index path changed from `__dirname`-relative to `app.getAppPath()`-relative for correct DMG resolution
+- `onUpdateAvailable` callback type simplified to `{ version: string }` (removed unused `releaseNotes`)
+- `onUpdateProgress` callback type simplified to `{ percent, bytesPerSecond }` (removed `transferred`, `total`)
+- CI: use `OLI_GH_TOKEN` for private submodule checkout
+- CI: publish release assets directly via `electron-builder --publish always`
+
+---
+
 ## [0.3.4] — 2026-03-21
 
 ### Fixed

@@ -13,10 +13,10 @@
 // Suppress security warnings in development (we intentionally disable webSecurity for CORS bypass)
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 
-import { app, BrowserWindow, session, ipcMain, shell, crashReporter } from 'electron';
+import { app, BrowserWindow, session, ipcMain, MessageChannelMain, utilityProcess, shell, Menu, dialog } from 'electron';
 import path from 'path';
 import { readFileSync, existsSync } from 'fs';
-import { runTracerouteStreaming, extractHostnameFromUrl } from './TracerouteProvider.js';
+import { extractHostnameFromUrl } from './TracerouteProvider.js';
 import electronLog from 'electron-log/main';
 import { createLogger } from './logger.js';
 import { setupAutoUpdater, installUpdate, checkForUpdates, simulateUpdate } from './AutoUpdater.js';
@@ -31,14 +31,7 @@ process.on('unhandledRejection', (reason) => {
 });
 
 // Delay logger initialization until app is essentially ready
-let logger: any;
-let networkLog: any;
-
-// Setup crash reporter to capture native crashes
-// crashReporter.start({
-//     submitURL: '', // Not submitting to a server, just capturing local dumps
-//     uploadToServer: false,
-// });
+let logger: ReturnType<typeof createLogger>;
 
 /**
  * Robustly find the package.json file across dev and production environments.
@@ -71,8 +64,36 @@ function findPackageJson(): { version: string } {
     // logger.warn('Could not find package.json via standard search paths. Using fallback version.');
     return { version: '0.0.0-unknown' };
 }
+/**
+ * Reads video player versions from the webapp package.json.
+ * Falls back to 'unknown' on any error (file missing, parse error, etc).
+ */
+function readWebappVersions(): Record<string, string> {
+    const keys = ['theoplayer', 'shaka-player', 'video.js'];
+    const searchPaths = [
+        path.join(app.getAppPath(), 'app/app/package.json'),
+        path.join(process.cwd(), 'app/app/package.json'),
+        path.join(__dirname, '..', '..', 'app/app/package.json'),
+    ];
+    for (const p of searchPaths) {
+        try {
+            if (existsSync(p)) {
+                const pkg = JSON.parse(readFileSync(p, 'utf8'));
+                const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+                const result: Record<string, string> = {};
+                for (const k of keys) {
+                    result[k] = deps[k]?.replace(/^[\^~]/, '') ?? 'unknown';
+                }
+                return result;
+            }
+        } catch { /* try next path */ }
+    }
+    return Object.fromEntries(keys.map(k => [k, 'unknown']));
+}
+
 // App version will be resolved in app.whenReady
 let appVersion = '';
+let webappVersions: Record<string, string> = {};
 
 // __dirname is available in CommonJS (our tsconfig uses module: CommonJS)
 
@@ -207,7 +228,7 @@ function setupNetworkMonitoring(): void {
                         requestHeaders[key] = value;
                     }
                     if (details.url.includes('.m3u8')) {
-                        networkLog.log(`Injected headers for ${details.url.substring(0, 60)}...`);
+                        logger.log(`Injected headers for ${details.url.substring(0, 60)}...`);
                     }
                 }
             }
@@ -252,7 +273,7 @@ function setupNetworkMonitoring(): void {
 
                 // Debug log
                 const cdn = flatHeaders['x-cdn'] || flatHeaders['server'] || 'unknown';
-                networkLog.log(`${details.method} ${details.url.substring(0, 80)}... (CDN: ${cdn}, TTFB: ${ttfb}ms)`);
+                logger.log(`${details.method} ${details.url.substring(0, 80)}... (CDN: ${cdn}, TTFB: ${ttfb}ms)`);
 
                 // Prevent local caching of video assets by overriding response headers
                 if (details.responseHeaders) {
@@ -302,7 +323,7 @@ function setupNetworkMonitoring(): void {
                 // Debug log for manifests
                 const isManifest = details.url.includes('.m3u8') || details.url.includes('.mpd');
                 if (isManifest) {
-                    networkLog.log(`Server IP: ${ip} for ${hostname}`);
+                    logger.log(`Server IP: ${ip} for ${hostname}`);
                 }
             }
         }
@@ -371,37 +392,38 @@ function isVideoRequest(url: string, resourceType?: string): boolean {
  * Node.js main process for native operations like traceroute, header 
  * injection, and update management.
  */
+/**
+ * Returns true when the IPC sender is the app's own renderer.
+ * Rejects requests from any injected iframe or third-party content.
+ */
+function isFromApp(event: Electron.IpcMainInvokeEvent): boolean {
+    const url = event.senderFrame?.url ?? '';
+    return url.startsWith('file://') || url.startsWith('http://localhost:');
+}
+
 function setupIpcHandlers(): void {
-    // Handle traceroute requests - now uses streaming for real-time hop updates
-    ipcMain.on('run-traceroute', (event, host: string) => {
+    // Traceroute: fork a utility process, create a MessageChannelMain so hops
+    // stream directly from the worker to the renderer preload — no main relay.
+    ipcMain.on('run-traceroute', (_event, host: string) => {
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+
         logger.info(`Traceroute requested for: ${host}`);
-
-        // Extract hostname if URL was passed
         const target = host.includes('://') ? extractHostnameFromUrl(host) : host;
+        if (!target) { logger.error('Invalid traceroute target:', host); return; }
 
-        if (!target) {
-            logger.error('Invalid traceroute target:', host);
-            return;
-        }
+        const { port1, port2 } = new MessageChannelMain();
 
-        // Use streaming traceroute for real-time hop updates
-        runTracerouteStreaming(
-            target,
-            // onHop: Send each hop as it's discovered
-            (hop) => {
-                if (mainWindow && !mainWindow.isDestroyed()) {
-                    mainWindow.webContents.send('traceroute-hop', hop);
-                }
-            },
-            // onComplete: Send final result
-            (result) => {
-                if (mainWindow && !mainWindow.isDestroyed()) {
-                    mainWindow.webContents.send('traceroute-result', result);
-                }
-            },
-            20, // maxHops
-            2   // timeout per hop
+        // port1 → renderer preload (receives hop/result messages directly)
+        mainWindow.webContents.postMessage('traceroute-port', null, [port1]);
+
+        // port2 → utility process (sends hop/result messages directly to renderer)
+        const worker = utilityProcess.fork(
+            path.join(__dirname, 'traceroute-worker.js')
         );
+        worker.postMessage({ cmd: 'traceroute', target, maxHops: 20, timeout: 2 }, [port2]);
+        worker.on('exit', (code) => {
+            logger.info(`Traceroute worker exited (code: ${code})`);
+        });
     });
 
     // Handle custom header injection requests
@@ -424,7 +446,8 @@ function setupIpcHandlers(): void {
     });
 
     // Return public IP via ipify
-    ipcMain.handle('get-public-ip', async () => {
+    ipcMain.handle('get-public-ip', async (event) => {
+        if (!isFromApp(event)) throw new Error('Unauthorized sender');
         try {
             const response = await fetch('https://api.ipify.org?format=json');
             const data = await response.json() as { ip: string };
@@ -437,7 +460,8 @@ function setupIpcHandlers(): void {
 
     // Geolocation is handled by the renderer's GeoLocationService via navigator.geolocation
     // (granted by setupPermissions). Return null to signal the renderer to use its own flow.
-    ipcMain.handle('get-geolocation', async () => {
+    ipcMain.handle('get-geolocation', async (event) => {
+        if (!isFromApp(event)) throw new Error('Unauthorized sender');
         return null;
     });
 
@@ -454,19 +478,111 @@ function setupIpcHandlers(): void {
         installUpdate();
     });
 
+    // Renderer log relay — writes renderer warn/error to electron-log file
+    ipcMain.on('log:relay', (_event, entry: { level: 'warn' | 'error'; namespace: string; args: unknown[] }) => {
+        const rendererLog = createLogger(`Renderer:${entry.namespace}`);
+        if (entry.level === 'warn') rendererLog.warn(...entry.args);
+        else rendererLog.error(...entry.args);
+    });
+
     logger.info('IPC handlers registered');
+}
+
+/**
+ * Configures the native macOS About panel with version details.
+ * Must be called after appVersion is resolved.
+ */
+function setupAboutPanel(): void {
+    app.setAboutPanelOptions({
+        applicationName: 'oi-Lab',
+        applicationVersion: appVersion,
+        copyright: 'Copyright © 2026 Sonic Rocket',
+        credits: [
+            `Electron: ${process.versions.electron}`,
+            `Chromium: ${process.versions.chrome}`,
+            `Node.js: ${process.versions.node}`,
+            `V8: ${process.versions.v8}`,
+            '',
+            `THEOplayer: ${webappVersions['theoplayer']}`,
+            `Shaka Player: ${webappVersions['shaka-player']}`,
+            `Video.js: ${webappVersions['video.js']}`,
+        ].join('\n'),
+    });
+}
+
+/**
+ * Builds the native application menu.
+ *
+ * Preserves macOS default menus (Edit, View, Window) so that standard
+ * keyboard shortcuts (Cmd+C, Cmd+Z, etc.) continue to work. On macOS,
+ * "About oi-Lab" lives in the app menu (standard placement); the Help
+ * menu is kept so macOS adds its built-in search field.
+ */
+function setupMenu(): void {
+    const template: Electron.MenuItemConstructorOptions[] = [
+        // macOS: first menu item is the app name menu
+        ...(process.platform === 'darwin' ? [{
+            label: app.name,
+            submenu: [
+                { role: 'about' as const },
+                {
+                    label: 'Check for Updates\u2026',
+                    click: () => checkForUpdates(true),
+                },
+                { type: 'separator' as const },
+                { role: 'hide' as const },
+                { role: 'hideOthers' as const },
+                { role: 'unhide' as const },
+                { type: 'separator' as const },
+                { role: 'quit' as const },
+            ]
+        }] : []),
+        {
+            label: 'Edit',
+            submenu: [
+                { role: 'undo' as const },
+                { role: 'redo' as const },
+                { type: 'separator' as const },
+                { role: 'cut' as const },
+                { role: 'copy' as const },
+                { role: 'paste' as const },
+                { role: 'selectAll' as const },
+            ]
+        },
+        {
+            label: 'View',
+            submenu: [
+                { role: 'reload' as const },
+                { role: 'toggleDevTools' as const },
+                { type: 'separator' as const },
+                { role: 'resetZoom' as const },
+                { role: 'zoomIn' as const },
+                { role: 'zoomOut' as const },
+                { type: 'separator' as const },
+                { role: 'togglefullscreen' as const },
+            ]
+        },
+        {
+            label: 'Window',
+            submenu: [
+                { role: 'minimize' as const },
+                { role: 'zoom' as const },
+                ...(process.platform === 'darwin' ? [{ role: 'front' as const }] : []),
+            ]
+        },
+        {
+            role: 'help' as const,
+            submenu: [],
+        }
+    ];
+
+    Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
 // App lifecycle events
 app.whenReady().then(() => {
-    // Initialize logger and crash reporter after app is ready
+    // Initialize logger after app is ready
     logger = createLogger('Electron');
-    networkLog = createLogger('Network');
-
-    // crashReporter.start({
-    //     submitURL: '', // Not submitting to a server, just capturing local dumps
-    //     uploadToServer: false,
-    // });
 
     logger.info('App starting up...');
 
@@ -478,6 +594,11 @@ app.whenReady().then(() => {
     } catch (e) {
         logger.error('Failed to read app version:', e);
     }
+
+    webappVersions = readWebappVersions();
+
+    setupAboutPanel();
+    setupMenu();
 
     logger.info('Checkpoint: before setupPermissions');
     setupPermissions();

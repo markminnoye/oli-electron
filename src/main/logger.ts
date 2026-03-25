@@ -5,14 +5,18 @@ import * as path from 'path';
 
 // Configure electron-log
 
-if (!app?.isPackaged) {
+if (!app?.isPackaged && electronLog.transports.file) {
     // In dev, log to local logs directory for easier access
     electronLog.transports.file.resolvePathFn = () => path.join(process.cwd(), 'logs/main.log');
 }
 
-// Log formatting for file/console
-electronLog.transports.console.format = '[{h}:{i}:{s}.{ms}] [{level}] {text}';
-electronLog.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}';
+// Log formatting for file/console (guards needed: preload context has no file transport)
+if (electronLog.transports.console) {
+    electronLog.transports.console.format = '[{h}:{i}:{s}.{ms}] [{level}] {text}';
+}
+if (electronLog.transports.file) {
+    electronLog.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}';
+}
 
 /**
  * Creates a namespaced logger for main-process modules.

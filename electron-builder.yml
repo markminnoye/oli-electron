@@ -1,12 +1,11 @@
 appId: be.sonicrocket.oli-cdn-demo
 productName: oi-Lab
-electronVersion: 33.4.11
 
 publish:
   provider: github
   owner: markminnoye
   repo: oli-electron
-  releaseType: draft
+  releaseType: release
 copyright: Copyright © 2026 Sonic Rocket
 
 directories:
@@ -19,6 +18,7 @@ icon: build/oli-electron.png
 files:
   - dist/**/*
   - app/app/dist/**/*
+  - app/app/package.json
   - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
   - "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
   - "!**/node_modules/.bin"

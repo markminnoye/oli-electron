@@ -12,6 +12,33 @@ import { createLogger } from './logger.js';
 
 const preloadLog = createLogger('Preload');
 
+// ── Traceroute listener sets ─────────────────────────────────────────────────
+// Callbacks registered by the webapp via onTracerouteHop / onTracerouteResult.
+// Populated from a MessagePort so hops travel directly from the utility process
+// worker to here, with no main-process relay on the hot path.
+
+type HopData = { hop: number; hostname: string | null; ip: string | null; rtt: number | null };
+type HopCallback = (hop: HopData) => void;
+type ResultCallback = (result: { target: string; hops: HopData[]; timestamp: number; complete: boolean }) => void;
+
+const tracerouteHopListeners = new Set<HopCallback>();
+const tracerouteResultListeners = new Set<ResultCallback>();
+
+// Main process sends a new MessagePort each time a traceroute starts.
+// The port is the direct channel from the utility process worker.
+ipcRenderer.on('traceroute-port', (event) => {
+    const port = event.ports[0];
+    if (!port) return;
+    port.start();
+    port.onmessage = (e: MessageEvent) => {
+        const { type, hop, result } = e.data ?? {};
+        if (type === 'hop')    tracerouteHopListeners.forEach(fn => fn(hop));
+        if (type === 'result') tracerouteResultListeners.forEach(fn => fn(result));
+    };
+});
+
+// ── Exposed API ──────────────────────────────────────────────────────────────
+
 /**
  * Securely exposed API via Electron Context Bridge.
  * Accessible in the renderer process via `window.electronAPI`.
@@ -61,8 +88,9 @@ const electronAPI = {
     },
 
     /**
-     * Subscribe to individual traceroute hops (real-time streaming)
-     * @param callback - Function called with each hop as discovered
+     * Subscribe to individual traceroute hops (real-time streaming).
+     * Hops arrive via a MessagePort transferred from the utility process worker,
+     * bypassing the main process for lower latency.
      * @returns Cleanup function to unsubscribe
      */
     onTracerouteHop: (callback: (hop: {
@@ -71,14 +99,12 @@ const electronAPI = {
         ip: string | null;
         rtt: number | null;
     }) => void) => {
-        const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
-        ipcRenderer.on('traceroute-hop', handler);
-        return () => ipcRenderer.removeListener('traceroute-hop', handler);
+        tracerouteHopListeners.add(callback);
+        return () => tracerouteHopListeners.delete(callback);
     },
 
     /**
-     * Subscribe to traceroute completion (full result)
-     * @param callback - Function called with complete traceroute result
+     * Subscribe to traceroute completion (full result).
      * @returns Cleanup function to unsubscribe
      */
     onTracerouteResult: (callback: (result: {
@@ -92,9 +118,8 @@ const electronAPI = {
         timestamp: number;
         complete: boolean;
     }) => void) => {
-        const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
-        ipcRenderer.on('traceroute-result', handler);
-        return () => ipcRenderer.removeListener('traceroute-result', handler);
+        tracerouteResultListeners.add(callback);
+        return () => tracerouteResultListeners.delete(callback);
     },
 
     /**
@@ -189,6 +214,18 @@ const electronAPI = {
     simulateUpdate: () => ipcRenderer.send('update:simulate'),
     installUpdate: () => {
         ipcRenderer.send('update:install');
+    },
+
+    /**
+     * Relay a renderer-side log entry to the main process for file persistence.
+     * Only warn/error levels are relayed to avoid excessive log volume.
+     */
+    log: (entry: { level: 'warn' | 'error'; namespace: string; args: unknown[] }) => {
+        try {
+            ipcRenderer.send('log:relay', entry);
+        } catch {
+            // Silently ignore — e.g. if args contain non-cloneable values
+        }
     },
 };
 
