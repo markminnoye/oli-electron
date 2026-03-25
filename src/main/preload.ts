@@ -190,6 +190,18 @@ const electronAPI = {
     installUpdate: () => {
         ipcRenderer.send('update:install');
     },
+
+    /**
+     * Relay a renderer-side log entry to the main process for file persistence.
+     * Only warn/error levels are relayed to avoid excessive log volume.
+     */
+    log: (entry: { level: 'warn' | 'error'; namespace: string; args: unknown[] }) => {
+        try {
+            ipcRenderer.send('log:relay', entry);
+        } catch {
+            // Silently ignore — e.g. if args contain non-cloneable values
+        }
+    },
 };
 
 // Expose the API to the renderer

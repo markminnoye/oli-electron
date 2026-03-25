@@ -447,6 +447,13 @@ function setupIpcHandlers(): void {
         installUpdate();
     });
 
+    // Renderer log relay — writes renderer warn/error to electron-log file
+    ipcMain.on('log:relay', (_event, entry: { level: 'warn' | 'error'; namespace: string; args: unknown[] }) => {
+        const rendererLog = createLogger(`Renderer:${entry.namespace}`);
+        if (entry.level === 'warn') rendererLog.warn(...entry.args);
+        else rendererLog.error(...entry.args);
+    });
+
     logger.info('IPC handlers registered');
 }
 
