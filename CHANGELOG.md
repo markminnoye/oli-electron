@@ -2,7 +2,7 @@
 
 All notable changes to the oli-electron shell are documented here.
 
-## [Unreleased] — post-0.3.4
+## [0.4.0] — 2026-03-26
 
 ### Fixed
 - `ipChanged` coerced to a strict boolean in `ElectronBridge.handleServerIp()` — prevents potential truthy/falsy issues when comparing IP strings
