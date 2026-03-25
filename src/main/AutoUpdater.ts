@@ -10,7 +10,7 @@
  *   update:error      — something went wrong
  */
 
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { createLogger } from './logger.js';
 
@@ -19,10 +19,11 @@ const log = createLogger('AutoUpdater');
 /** How long to wait after startup before the first update check (ms) */
 const INITIAL_CHECK_DELAY_MS = 3_000;
 
-/** How often to check for updates — every 4 hours */
-const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1_000;
+/** How often to check for updates — every 3 days */
+const CHECK_INTERVAL_MS = 3 * 24 * 60 * 60 * 1_000;
 
 let mainWindowGetter: () => BrowserWindow | null;
+let manualCheckPending = false;
 
 /**
  * Configures electron-updater and starts the update check cycle.
@@ -46,12 +47,22 @@ export function setupAutoUpdater(getMainWindow: () => BrowserWindow | null): voi
         }
     }
 
+    function showDialog(options: Electron.MessageBoxOptions): void {
+        const win = getMainWindow();
+        if (win && !win.isDestroyed()) {
+            dialog.showMessageBox(win, options);
+        } else {
+            dialog.showMessageBox(options);
+        }
+    }
+
     autoUpdater.on('checking-for-update', () => {
         log.log('Checking for update...');
         send('update:checking');
     });
 
     autoUpdater.on('update-available', (info) => {
+        manualCheckPending = false;
         log.info(`Update available: v${info.version}`);
         send('update:available', {
             version: info.version,
@@ -61,6 +72,16 @@ export function setupAutoUpdater(getMainWindow: () => BrowserWindow | null): voi
 
     autoUpdater.on('update-not-available', (info) => {
         log.log(`Already up to date (v${info.version})`);
+        if (manualCheckPending) {
+            manualCheckPending = false;
+            showDialog({
+                type: 'info',
+                title: `${app.name} is up to date`,
+                message: `${app.name} is up to date`,
+                detail: `You're running version ${info.version}, which is the latest version.`,
+                buttons: ['OK'],
+            });
+        }
     });
 
     autoUpdater.on('download-progress', (progress) => {
@@ -81,6 +102,16 @@ export function setupAutoUpdater(getMainWindow: () => BrowserWindow | null): voi
     autoUpdater.on('error', (err) => {
         log.error('Update error:', err.message);
         send('update:error', { message: err.message });
+        if (manualCheckPending) {
+            manualCheckPending = false;
+            showDialog({
+                type: 'error',
+                title: 'Update Check Failed',
+                message: 'Could not check for updates.',
+                detail: err.message,
+                buttons: ['OK'],
+            });
+        }
     });
 
     // Initial check after a short delay to let the app finish loading
@@ -98,7 +129,7 @@ export function setupAutoUpdater(getMainWindow: () => BrowserWindow | null): voi
             });
         }, CHECK_INTERVAL_MS);
 
-        log.info('Auto-updater configured — first check in 3s, then every 4h');
+        log.info('Auto-updater configured — first check in 3s, then every 3 days');
     } else {
         log.info('Auto-updater configured in dummy mode (dev)');
     }
@@ -110,11 +141,33 @@ export function setupAutoUpdater(getMainWindow: () => BrowserWindow | null): voi
  */
 export async function checkForUpdates(manual: boolean = false): Promise<void> {
     if (app.isPackaged || manual) {
+        if (manual) manualCheckPending = true;
         log.log(`Checking for updates (manual: ${manual})...`);
         try {
-            await autoUpdater.checkForUpdatesAndNotify();
+            const result = await autoUpdater.checkForUpdatesAndNotify();
+            // electron-updater returns null when the check is skipped (dev mode, no dev config).
+            // In that case no events fire, so we must clear the flag manually.
+            if (result == null && manualCheckPending) {
+                manualCheckPending = false;
+                const win = mainWindowGetter?.();
+                const opts: Electron.MessageBoxOptions = {
+                    type: 'info',
+                    title: 'Update Check Unavailable',
+                    message: 'Update Check Unavailable',
+                    detail: !app.isPackaged
+                        ? 'Update checking is not available in development mode. Package the app to test updates.'
+                        : 'The update check completed without a response.',
+                    buttons: ['OK'],
+                };
+                if (win && !win.isDestroyed()) {
+                    dialog.showMessageBox(win, opts);
+                } else {
+                    dialog.showMessageBox(opts);
+                }
+            }
         } catch (err: any) {
             log.error('checkForUpdates failed:', err.message);
+            // error event handler will show the dialog if manualCheckPending
         }
     } else {
         log.log('Skipping update check in development mode');
