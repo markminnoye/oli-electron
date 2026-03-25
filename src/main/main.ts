@@ -64,8 +64,36 @@ function findPackageJson(): { version: string } {
     // logger.warn('Could not find package.json via standard search paths. Using fallback version.');
     return { version: '0.0.0-unknown' };
 }
+/**
+ * Reads video player versions from the webapp package.json.
+ * Falls back to 'unknown' on any error (file missing, parse error, etc).
+ */
+function readWebappVersions(): Record<string, string> {
+    const keys = ['theoplayer', 'shaka-player', 'video.js'];
+    const searchPaths = [
+        path.join(app.getAppPath(), 'app/app/package.json'),
+        path.join(process.cwd(), 'app/app/package.json'),
+        path.join(__dirname, '..', '..', 'app/app/package.json'),
+    ];
+    for (const p of searchPaths) {
+        try {
+            if (existsSync(p)) {
+                const pkg = JSON.parse(readFileSync(p, 'utf8'));
+                const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+                const result: Record<string, string> = {};
+                for (const k of keys) {
+                    result[k] = deps[k]?.replace(/^[\^~]/, '') ?? 'unknown';
+                }
+                return result;
+            }
+        } catch { /* try next path */ }
+    }
+    return Object.fromEntries(keys.map(k => [k, 'unknown']));
+}
+
 // App version will be resolved in app.whenReady
 let appVersion = '';
+let webappVersions: Record<string, string> = {};
 
 // __dirname is available in CommonJS (our tsconfig uses module: CommonJS)
 
@@ -473,6 +501,11 @@ function setupAboutPanel(): void {
             `Electron: ${process.versions.electron}`,
             `Chromium: ${process.versions.chrome}`,
             `Node.js: ${process.versions.node}`,
+            `V8: ${process.versions.v8}`,
+            '',
+            `THEOplayer: ${webappVersions['theoplayer']}`,
+            `Shaka Player: ${webappVersions['shaka-player']}`,
+            `Video.js: ${webappVersions['video.js']}`,
         ].join('\n'),
     });
 }
@@ -561,6 +594,8 @@ app.whenReady().then(() => {
     } catch (e) {
         logger.error('Failed to read app version:', e);
     }
+
+    webappVersions = readWebappVersions();
 
     setupAboutPanel();
     setupMenu();
