@@ -8,9 +8,11 @@ on:
 
 jobs:
   check-submodule:
+    name: Check Submodule Branch
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout with submodules
+        uses: actions/checkout@v6
         with:
           submodules: true
           token: ${{ secrets.OLI_GH_TOKEN }}

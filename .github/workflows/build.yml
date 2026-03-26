@@ -8,12 +8,13 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: "Publish to GitHub Releases (always)"
+        description: "Publish artifacts to GitHub Releases"
         type: boolean
         default: false
 
 jobs:
   build-mac:
+    name: macOS
     runs-on: macos-latest
 
     steps:
@@ -54,6 +55,7 @@ jobs:
           GH_TOKEN: ${{ secrets.OLI_GH_TOKEN }}
 
   build-win:
+    name: Windows
     runs-on: windows-latest
 
     steps:
