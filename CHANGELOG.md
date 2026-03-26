@@ -4,8 +4,17 @@ All notable changes to the oli-electron shell are documented here.
 
 ## [0.4.1] — 2026-03-26
 
+### Added
+- App errors and warnings are now captured in the desktop log file for easier troubleshooting
+- Download oi-Lab button in the tools dropdown (web builds only)
+
 ### Changed
-- Dependency updates: `electron` 40.8.3→40.8.4, `tar` 7.5.11→7.5.13, `axios` 1.13.5→1.13.6, `joi` 18.0.2→18.1.1, `sax` 1.4.4→1.6.0, `minipass-flush` 1.0.5→1.0.6, and other minor patch bumps
+- Webapp updated v0.13.0 → v0.15.1:
+  - v0.15.x: panel toggle hover animation fix, button/CSS refactors, logging standardisation
+  - v0.14.1: active player name and version shown before a stream is loaded
+  - v0.14.0: CDN logo with animated badge on the video player, country flags on strategy panel, real-time metrics chart axis, UI updates across player/metrics/strategy/chat panels
+  - v0.13.1: update notification banner, BakeOffView memory-leak fix
+- Electron dependency updates: `electron` 40.8.3→40.8.4, `tar` 7.5.11→7.5.13, `axios` 1.13.5→1.13.6, `joi` 18.0.2→18.1.1, `sax` 1.4.4→1.6.0, and other minor patch bumps
 
 ---
 

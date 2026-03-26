@@ -78,7 +78,7 @@ export function setupAutoUpdater(getMainWindow: () => BrowserWindow | null): voi
                 type: 'info',
                 title: `${app.name} is up to date`,
                 message: `${app.name} is up to date`,
-                detail: `You're running version ${info.version}, which is the latest version.`,
+                detail: `You're running version ${app.getVersion()}, which is the latest version.`,
                 buttons: ['OK'],
             });
         }
