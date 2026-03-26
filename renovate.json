@@ -1,0 +1,30 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "packageRules": [
+    {
+      "description": "Keep shared deps in sync across electron and app/app",
+      "matchPackageNames": ["debug", "@types/debug", "@types/node", "typescript"],
+      "groupName": "shared dependencies",
+      "groupSlug": "shared-deps"
+    },
+    {
+      "description": "Group Electron and electron-builder together",
+      "matchPackageNames": ["electron", "electron-builder", "electron-log", "electron-updater"],
+      "groupName": "electron",
+      "groupSlug": "electron"
+    },
+    {
+      "description": "Group Vite and its plugins",
+      "matchPackageNames": ["vite", "vite-plugin-static-copy", "rollup-plugin-visualizer"],
+      "groupName": "vite",
+      "groupSlug": "vite"
+    },
+    {
+      "description": "Group Vercel packages",
+      "matchPackagePatterns": ["^@vercel/"],
+      "groupName": "vercel",
+      "groupSlug": "vercel"
+    }
+  ]
+}
