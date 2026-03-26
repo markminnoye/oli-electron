@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160" style="background: none;">
+
+  <svg width="160" height="160" viewBox="-8 -8 40 40" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <style>
+      @keyframes exhaust {
+        0% { 
+          transform: translateY(0) scale(0.4); 
+          opacity: 0;
+          stroke: #8a2be2;
+        }
+        12% {
+          opacity: 0.9;
+          stroke: #8a2be2;
+        }
+        50% {
+          stroke: #33ccff;
+        }
+        88% {
+          stroke: #98fce0;
+        }
+        100% { 
+          transform: translateY(6px) scale(1.4); 
+          opacity: 0;
+          stroke: #98fce0;
+        }
+      }
+      
+      .ring {
+        transform-origin: center;
+        transform-box: fill-box;
+        animation: exhaust 3.5s ease-out infinite;
+        fill: none;
+      }
+      
+      .ring.r1 { animation-delay: 0s; }
+      .ring.r2 { animation-delay: 0.875s; }
+      .ring.r3 { animation-delay: 1.75s; }
+      .ring.r4 { animation-delay: 2.625s; }
+    </style>
+    
+    <g transform="rotate(45, 8.5, 16)">
+      <ellipse class="ring r1" cx="8.5" cy="16" rx="3" ry="1.2" stroke-width="1"/>
+      <ellipse class="ring r2" cx="8.5" cy="16" rx="3" ry="1.2" stroke-width="1"/>
+      <ellipse class="ring r3" cx="8.5" cy="16" rx="3" ry="1.2" stroke-width="1"/>
+      <ellipse class="ring r4" cx="8.5" cy="16" rx="3" ry="1.2" stroke-width="1"/>
+    </g>
+    
+    <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" stroke="#E800E8" stroke-width="2.2"/>
+    <path d="M9 12H4s.55-3.03 2-5c1.62-2.2 5-3 5-3" stroke="#E800E8" stroke-width="2.2"/>
+    <path d="M12 15v5s3.03-.55 5-2c2.2-1.62 3-5 3-5" stroke="#E800E8" stroke-width="2.2"/>
+  </svg>
+
+</svg>

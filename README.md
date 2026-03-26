@@ -1,116 +1,56 @@
-# o|i Lab - Desktop App
+# o|i Lab
 
-A standalone desktop application for visualizing video streaming delivery paths and CDN performance.
+> See your video delivery paths. Control it with AI.
 
-![o|i Lab](assets/oli_floppy.png)
+[![Try Web Version](https://img.shields.io/badge/Try-Web%20Version-6366f1?style=for-the-badge)](https://o-i-demo.vercel.app)&nbsp;&nbsp;[![Download Desktop App](https://img.shields.io/badge/Download-Desktop%20App-0ea5e9?style=for-the-badge)](https://github.com/markminnoye/oli-electron/releases/latest)
 
-## ⬇️ Download
-
-**[Download the latest release](https://github.com/markminnoye/oli-electron/releases/latest)**
-
-- **macOS (Apple Silicon)**: Download the `.dmg` file
-
-### Resolving the "App is damaged" Error on macOS
+<details>
+<summary>Resolving the "App is damaged" error on macOS</summary>
 
 Because this app is not signed with an Apple Developer certificate, macOS Gatekeeper may assign a quarantine attribute to the downloaded file. This results in an error message stating: **"o|i Lab is damaged and can't be opened. You should move it to the Trash."**
 
 To bypass this security feature and allow the app to run, open a **Terminal** window and execute the following command after moving the app to your Applications folder:
 
 ```bash
-xattr -cr "/Applications/o|i Lab.app"
+xattr -cr "/Applications/oi-Lab.app"
 ```
 
 _This command removes the `com.apple.quarantine` extended attribute, signaling to macOS that you trust the application._
 
-## ✨ Features
+</details>
 
-### 🗺️ Network Path Visualization
+---
 
-- Real-time traceroute showing your video delivery path
-- Geographic visualization of network hops on the map
-- Click any hop to view details (location, latency, IP address)
+<img src="assets/CleanShot%202026-03-26%20at%2022.28.56.png" width="45%" alt="Bake-Off — compare streams side-by-side in real time">&nbsp;<img src="assets/CleanShot%202026-03-26%20at%2018.27.26.png" width="45%" alt="Content Steering — Quortex Switch strategy with Quortex Copilot">
 
-### 📊 Performance Monitoring
+---
 
-- Live video quality metrics (bitrate, resolution, buffer health)
-- CDN response times and HTTP headers
-- Time to First Frame (TTFF) tracking
+## 🧁 Bake-Off
 
-### 🔓 No Browser Restrictions
+Put your CDNs head-to-head. Load as many streams as you need and compare their performance side by side under identical conditions. Each stream shows a full picture: QoE metrics alongside CDN and network performance. Works with live, VOD, and low-latency streams.
 
-- Direct access to CDN manifests and segments (no CORS)
-- Full HTTP header capture
-- Real network traceroute via native `mtr` integration
+## 🔀 Content Steering
 
-## 🚀 Getting Started
+Orchestrate your multi-CDN strategy in real time. See which CDN is serving each viewer segment, monitor live bandwidth and viewer distribution across your CDN pool, track health per CDN, and visualise your network delivery path on an interactive map. Designed to help you balance quality of service and cost across all your CDN providers simultaneously.
 
-1. Download and install the app
-2. Enter a video URL or choose a demo stream
-3. Watch the network path animate on the map
-4. Click path segments to explore hop details
+## 🤖 Quortex Copilot
 
-## 🌐 Web Version
+The Quortex Copilot is a context-aware AI assistant with full knowledge of your live Quortex Switch setup. It monitors your delivery in real time, flags issues as they emerge, and proactively advises on how to optimise your strategy. When you're ready to act — or when the situation calls for it — it can make changes directly: rebalancing CDN traffic, adjusting your strategy for a specific region, or responding to a live incident. Ask a question or give an instruction — it handles the rest.
 
-Try the web version at **[o-i-demo.vercel.app](https://o-i-demo.vercel.app)**
+## 💻 Desktop App
 
-The desktop app provides additional capabilities not available in browsers due to security restrictions.
+The desktop app unlocks capabilities that aren't possible in a browser:
 
-## 🛠️ For Developers
+- Full HTTP header capture — no CORS restrictions
+- Native traceroute for accurate network path analysis
+- Smart geolocation with RTT validation
 
-See [AGENTS.md](AGENTS.md) for:
+---
 
-- Project architecture
-- Build instructions
-- Git submodule workflow
-- Development setup
+## 🛠️ For Developers & Agents
 
-## Smart Geolocation Engine
+See [AGENTS.md](AGENTS.md) for architecture, IPC channels, build instructions, and submodule workflow.
 
-The app implements a multi-source geolocation resolver to accurately locate CDN edge nodes:
+---
 
-1.  **CDN-Specific Headers**: Extracts location codes from `x-amz-cf-pop`, `x-served-by`, `cf-ray`, etc.
-2.  **Hostname Parsing**: Reverse DNS analysis for location patterns (e.g., `ams`, `fra`).
-3.  **RTT Validation**: Measures round-trip time and compares it against theoretical speed-of-light limits to detect impossible or unlikely geodata.
-4.  **Multi-source Fallback**: Bridges data from ip-api, MaxMind (when available), and native Electron capabilities.
-
-### Data Flow Architecture
-
-```mermaid
-graph TD
-    subgraph "Electron (Main Process)"
-        Main[main.ts]
-        Session[session.webRequest]
-        IPC[IPC Channel]
-        Native[Native APIs: DNS/Traceroute]
-    end
-
-    subgraph "Webapp (Submodule)"
-        Bridge[ElectronBridge]
-        DPA[DeepPacketAnalyser]
-        SGR[SmartGeoResolver]
-        GLV[GeoLocationValidator]
-        Map[GeoMap / PathNavigator]
-    end
-
-    Session -- "Capture Headers" --> Main
-    Main -- "Send via IPC" --> IPC
-    IPC -- "Expose to Webapp" --> Bridge
-    Bridge -- "Analyze Headers" --> DPA
-    DPA -- "Resolve Locations" --> SGR
-    SGR -- "Validate via RTT" --> GLV
-    SGR -- "Fallback/Compare" --> Native
-    SGR -- "Update Visuals" --> Map
-```
-
-## 💻 Tech Stack
-
-- **Electron** v33 — Desktop framework with CORS bypass
-- **TypeScript** — Core language for shell & webapp
-- **Vite** — Fast frontend build tool & dev server
-- **electron-builder** — Production packaging & DMG creation
-- **Native Integration** — `mtr` (traceroute), `dig` (DNS), `xattr` (macOS attributes)
-- **Webapp Core** — THEOplayer, Shaka Player, Video.js, Chart.js, Leaflet
-
-## License
-
-MIT
+MIT License · Developed for o|i by <a href="https://sonicrocket.be">Sonic Rocket <img src="assets/SonicRocket-V1-light.svg" height="30" alt="Sonic Rocket" style="vertical-align:middle"></a>
