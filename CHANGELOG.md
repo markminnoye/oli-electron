@@ -2,6 +2,13 @@
 
 All notable changes to the oli-electron shell are documented here.
 
+## [0.4.1] — 2026-03-26
+
+### Changed
+- Dependency updates: `electron` 40.8.3→40.8.4, `tar` 7.5.11→7.5.13, `axios` 1.13.5→1.13.6, `joi` 18.0.2→18.1.1, `sax` 1.4.4→1.6.0, `minipass-flush` 1.0.5→1.0.6, and other minor patch bumps
+
+---
+
 ## [0.4.0] — 2026-03-26
 
 ### Fixed
