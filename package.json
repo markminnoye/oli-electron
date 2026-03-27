@@ -14,7 +14,8 @@
     "postinstall": "cd app/app && npm install",
     "submodule:init": "git submodule update --init --recursive",
     "submodule:update": "git submodule update --remote --merge",
-    "submodule:status": "git submodule status"
+    "submodule:status": "git submodule status",
+    "deps:check": "npm outdated; echo '--- app/app ---'; npm --prefix app/app outdated"
   },
   "keywords": [
     "electron",

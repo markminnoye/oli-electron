@@ -7,11 +7,9 @@ This file provides guidance to AI agents when working with code in this reposito
 > `git submodule update --remote --merge`
 
 > [!TIP]
-> **Keep Dependencies Fresh**: Periodically check for updates in all three layers (`.`, `app/app`, `app/server`) using `npm outdated`.
+> **Keep Dependencies Fresh**: Use `npm run deps:check` from the root to see outdated packages in both the Electron shell and the webapp side by side.
 >
-> - **Electron**: `npm outdated` (Root)
-> - **Webapp**: `cd app/app && npm outdated`
-> - **Server**: `cd app/server && npm outdated`
+> Shared packages (`debug`, `@types/debug`, `@types/node`, `typescript`) must stay in sync between `.` and `app/app`. **Renovate Bot** is configured via `renovate.json` to open grouped PRs automatically — install the [Renovate GitHub App](https://github.com/apps/renovate) on the repo to activate it.
 
 ## Table of Contents
 
@@ -156,6 +154,10 @@ GeoMap renders network path visualization
 - `npm run submodule:update` - Pull latest from app/ remote (`--remote --merge`)
 - `npm run submodule:status` - Show current submodule SHA and branch
 - `bash .scripts/check-submodule.sh` - Verify app/ is on the same branch as main repo
+
+### Dependencies
+
+- `npm run deps:check` - Show outdated packages in both Electron root and `app/app` side by side
 
 ### Testing
 
@@ -339,6 +341,7 @@ A **GitHub Actions workflow** (`.github/workflows/submodule-check.yml`) runs on 
 | `.scripts/install-hooks.sh`                  | Installs git hooks (run after cloning)                       |
 | `.github/workflows/submodule-check.yml`      | CI workflow for submodule branch alignment                   |
 | `.github/workflows/bundle-check.yml`         | CI workflow for bundle size + leakage checks on PRs          |
+| `renovate.json`                              | Renovate Bot config — grouped dep update PRs (shared, electron, vite, vercel) |
 
 ## Development Hints
 
